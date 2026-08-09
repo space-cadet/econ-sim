@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Econ-Sim: Networked Intertemporal Optimization</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      line-height: 1.6;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    header {
+      text-align: center;
+      padding: 30px 0;
+      border-bottom: 2px solid #e74c3c;
+      margin-bottom: 20px;
+    }
+    
+    header h1 {
+      font-size: 2.5em;
+      color: #e74c3c;
+      margin-bottom: 10px;
+    }
+    
+    header p {
+      color: #aaa;
+      font-size: 1.1em;
+    }
+    
+    .tabs {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #333;
+    }
+    
+    .tab-button {
+      padding: 12px 24px;
+      background: #16213e;
+      border: none;
+      color: #aaa;
+      cursor: pointer;
+      font-size: 1em;
+      border-radius: 4px 4px 0 0;
+      transition: all 0.3s;
+    }
+    
+    .tab-button:hover {
+      background: #0f3460;
+      color: #fff;
+    }
+    
+    .tab-button.active {
+      background: #e74c3c;
+      color: #fff;
+    }
+    
+    .tab-panel {
+      display: none;
+      padding: 20px 0;
+    }
+    
+    .tab-panel.active {
+      display: block;
+    }
+    
+    .panel-grid {
+      display: grid;
+      grid-template-columns: 250px 1fr;
+      gap: 20px;
+    }
+    
+    .sidebar {
+      background: #16213e;
+      padding: 15px;
+      border-radius: 8px;
+      height: fit-content;
+    }
+    
+    .sidebar h3 {
+      color: #e74c3c;
+      margin-bottom: 15px;
+      font-size: 1.1em;
+    }
+    
+    .control-group {
+      margin-bottom: 15px;
+    }
+    
+    .control-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #aaa;
+      font-size: 0.9em;
+    }
+    
+    .control-group input[type="range"] {
+      width: 100%;
+      margin-bottom: 5px;
+    }
+    
+    .control-group .value-display {
+      color: #e74c3c;
+      font-weight: bold;
+    }
+    
+    button {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: background 0.3s;
+      margin: 2px;
+    }
+    
+    button:hover {
+      background: #c0392b;
+    }
+    
+    button.secondary {
+      background: #3498db;
+    }
+    
+    button.secondary:hover {
+      background: #2980b9;
+    }
+    
+    .main-content {
+      background: #16213e;
+      padding: 15px;
+      border-radius: 8px;
+    }
+    
+    #network-viz {
+      width: 100%;
+      height: 500px;
+      background: #0f0f23;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px;
+      background: #0f3460;
+      border-radius: 4px;
+      margin-top: 10px;
+      font-size: 0.9em;
+    }
+    
+    .status-bar span {
+      margin-right: 20px;
+    }
+    
+    .stability-stable { color: #2ecc71; }
+    .stability-unstable { color: #e74c3c; }
+    
+    .plots-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    
+    .plot-container {
+      background: #0f0f23;
+      padding: 15px;
+      border-radius: 8px;
+      height: 350px;
+    }
+    
+    .plot-container h4 {
+      color: #e74c3c;
+      margin-bottom: 10px;
+    }
+    
+    .plot-container canvas {
+      max-height: 300px;
+    }
+    
+    .docs-content {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    
+    .docs-content h2 {
+      color: #e74c3c;
+      margin: 30px 0 15px;
+      border-bottom: 1px solid #333;
+      padding-bottom: 10px;
+    }
+    
+    .docs-content h3 {
+      color: #3498db;
+      margin: 20px 0 10px;
+    }
+    
+    .docs-content p {
+      margin-bottom: 15px;
+      text-align: justify;
+    }
+    
+    .docs-content .math {
+      background: #0f0f23;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 15px 0;
+      font-family: 'Courier New', monospace;
+      overflow-x: auto;
+    }
+    
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    
+    .comparison-table th,
+    .comparison-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #333;
+    }
+    
+    .comparison-table th {
+      background: #0f3460;
+      color: #e74c3c;
+    }
+    
+    .comparison-table tr:hover {
+      background: #1a1a3e;
+    }
+    
+    .node-properties {
+      background: #0f0f23;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+      min-height: 100px;
+    }
+    
+    footer {
+      text-align: center;
+      padding: 30px;
+      color: #666;
+      border-top: 1px solid #333;
+      margin-top: 40px;
+    }
+    
+    @media (max-width: 900px) {
+      .panel-grid { grid-template-columns: 1fr; }
+      .plots-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🌐 Econ-Sim</h1>
+      <p>Networked Intertemporal Optimization — Ramsey Planner on Graphs</p>
+      <p style="font-size: 0.9em; color: #666;">Based on notes by Anarkitty · Physics-Economics Field Theory Analogy</p>
+    </header>
+
+    <div class="tabs">
+      <button class="tab-button active" data-tab="simulation-tab">🎛️ Simulation</button>
+      <button class="tab-button" data-tab="plots-tab">📊 Plots</button>
+      <button class="tab-button" data-tab="docs-tab">📖 Documentation</button>
+    </div>
+
+    <!-- Simulation Tab -->
+    <div id="simulation-tab" class="tab-panel active">
+      <div class="panel-grid">
+        <div class="sidebar">
+          <h3>Network Editor</h3>
+          
+          <div class="control-group">
+            <label>Add Producer</label>
+            <input type="number" id="prod-productivity" value="1.5" step="0.1" min="0.1" style="width: 100%; padding: 5px; margin-bottom: 5px;">
+            <button id="add-producer">➕ Producer</button>
+          </div>
+          
+          <div class="control-group">
+            <label>Add Household</label>
+            <input type="number" id="hh-weight" value="1.0" step="0.1" min="0.1" style="width: 100%; padding: 5px; margin-bottom: 5px;" placeholder="Welfare weight">
+            <input type="number" id="hh-gamma" value="2.0" step="0.1" min="0.5" style="width: 100%; padding: 5px; margin-bottom: 5px;" placeholder="Risk aversion γ">
+            <button id="add-household">➕ Household</button>
+          </div>
+          
+          <div class="control-group">
+            <button id="remove-node" class="secondary">🗑️ Remove Selected</button>
+          </div>
+          
+          <div id="node-properties" class="node-properties">
+            <p style="color: #666;">Click a node to see properties</p>
+          </div>
+          
+          <h3 style="margin-top: 20px;">Simulation Parameters</h3>
+          
+          <div class="control-group">
+            <label>Discount Factor β: <span id="beta-value" class="value-display">0.95</span></label>
+            <input type="range" id="beta-slider" min="0.5" max="0.99" step="0.01" value="0.95">
+          </div>
+          
+          <div class="control-group">
+            <label>Time Horizon T: <span id="horizon-value" class="value-display">50</span></label>
+            <input type="range" id="horizon-slider" min="10" max="200" step="10" value="50">
+          </div>
+          
+          <div class="control-group">
+            <button id="run-sim">▶ Run Simulation</button>
+            <button id="play-animation" class="secondary">▶ Play</button>
+            <button id="reset-sim">↺ Reset</button>
+          </div>
+        </div>
+        
+        <div class="main-content">
+          <div id="network-viz"></div>
+          <div class="status-bar">
+            <span id="stability-indicator"></span>
+            <span>Welfare: <strong id="welfare-value">—</strong></span>
+            <span>Status: <strong id="convergence-status">—</strong></span>
+            <span id="time-display">t = 0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Plots Tab -->
+    <div id="plots-tab" class="tab-panel">
+      <div class="plots-grid">
+        <div class="plot-container">
+          <h4>📈 Consumption Paths</h4>
+          <canvas id="consumption-plot"></canvas>
+        </div>
+        <div class="plot-container">
+          <h4>💰 Shadow Prices (Lagrange Multipliers)</h4>
+          <canvas id="shadow-price-plot"></canvas>
+        </div>
+        <div class="plot-container">
+          <h4>🎯 Welfare Trajectory</h4>
+          <canvas id="welfare-plot"></canvas>
+        </div>
+        <div class="plot-container">
+          <h4>🔲 Adjacency Matrix</h4>
+          <canvas id="adjacency-plot"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Documentation Tab -->
+    <div id="docs-tab" class="tab-panel">
+      <div class="docs-content">
+        <h2>Introduction</h2>
+        <p>
+          This simulator implements a <strong>networked intertemporal optimization</strong> model — 
+          a Ramsey-style social planner's problem generalized to a graph-structured economy. 
+          The model combines heterogeneous agents (households with different preferences) and 
+          network geography (goods move along graph edges) into a unified framework with deep 
+          analogies to lattice field theory in physics.
+        </p>
+        
+        <h2>The Mathematical Model</h2>
+        
+        <h3>The Planner's Objective</h3>
+        <p>
+          The planner maximizes welfare over an infinite horizon (approximated by finite T):
+        </p>
+        <div class="math">
+          W = Σₜ₌₀^∞ βᵗ Σᵈ₌₁^D ωᵈ uᵈ(cᵈₜ)
+        </div>
+        <p>
+          Where <strong>β ∈ (0,1)</strong> is the discount factor, <strong>ωᵈ</strong> are welfare weights 
+          (Pareto weights tracing the efficiency frontier), and <strong>uᵈ(c)</strong> is household 
+          d's utility from consumption vector c at time t.
+        </p>
+        
+        <h3>Constraints</h3>
+        <p><strong>Node-level flow balance</strong> (conservation on the graph):</p>
+        <div class="math">
+          F⁽ⁱ⁾(x⁽ⁱ⁾ₜ) + Σⱼ(Tⱼᵢ,ₜ - Tᵢⱼ,ₜ) - cᵢ,ₜ - ΔS⁽ⁱ⁾ₜ = 0
+        </div>
+        <p>
+          Production + net transfers in - consumption - change in stock = 0, at every node, every period.
+          This is the <strong>economic analogue of a continuity equation</strong> on a graph.
+        </p>
+        
+        <p><strong>Network stability condition:</strong></p>
+        <div class="math">
+          ρ(A) &lt; 1
+        </div>
+        <p>
+          The spectral radius of the adjacency matrix must be strictly below one. This ensures 
+          the Neumann series (I - A)⁻¹ = Σₖ Aᵏ converges — the network's "Green's function" exists.
+        </p>
+        
+        <h3>First-Order Conditions</h3>
+        <p>Attaching multipliers λₜ⁽ⁱ⁾ (node balance) and μₜ⁽ᵈ⁾ (goods accounting):</p>
+        
+        <p><strong>Consumption:</strong></p>
+        <div class="math">
+          ωᵈ · ∇uᵈ(cᵈ,ₜ) = μₜ⁽ᵈ⁾
+        </div>
+        <p>Welfare-weighted marginal utility equals shadow price.</p>
+        
+        <p><strong>Transfers:</strong></p>
+        <div class="math">
+          λₜ⁽ʲ⁾ = λₜ⁽ⁱ⁾ &nbsp; along any edge carrying active flow
+        </div>
+        <p>Shadow values equalize across connected nodes — a no-arbitrage condition in space.</p>
+        
+        <p><strong>Euler Equation (Ramsey condition):</strong></p>
+        <div class="math">
+          λₜ = β(1 + MP)λₜ₊₁
+        </div>
+        <p>
+          The shadow value of resources today equals their discounted shadow value tomorrow, 
+          gross of the marginal product of storage. This is the intertemporal no-arbitrage condition.
+        </p>
+        
+        <h2>The Physics Analogy</h2>
+        <p>
+          To a physicist, the economic Lagrangian is a familiar object in unfamiliar dress. 
+          It has exactly the structure of a classical field theory — but defined on a discrete 
+          spacetime and extremized for a different reason.
+        </p>
+        
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Physics (Continuum)</th>
+              <th>Economics (These Notes)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Field φ(x,t)</td>
+              <td>Consumption c, transfers T, stocks S at node-time (i,t)</td>
+            </tr>
+            <tr>
+              <td>Spacetime point (x,t)</td>
+              <td>Node-date pair (i,t) — a lattice, not a continuum</td>
+            </tr>
+            <tr>
+              <td>Action S[φ] = ∫dt dx ℒ</td>
+              <td>Welfare W = Σₜ βᵗ{...}</td>
+            </tr>
+            <tr>
+              <td>Lagrangian density ℒ</td>
+              <td>Per-period welfare plus constraint terms</td>
+            </tr>
+            <tr>
+              <td>Time integral ∫dt</td>
+              <td>Discrete sum Σₜ₌₀^∞</td>
+            </tr>
+            <tr>
+              <td>Space integral ∫dx</td>
+              <td>Sum Σᵢ over nodes (space is a graph)</td>
+            </tr>
+            <tr>
+              <td>Multiplier field λ(x,t)</td>
+              <td>Multiplier "fields" λₜ⁽ⁱ⁾, μₜ⁽ᵈ⁾ on the node-time lattice</td>
+            </tr>
+            <tr>
+              <td>Euler-Lagrange equation</td>
+              <td>Discrete Euler equation λₜ = β(1+MP)λₜ₊₁</td>
+            </tr>
+            <tr>
+              <td>Conjugate momentum p = ∂ℒ/∂q̇</td>
+              <td>Shadow price λ = ∂V/∂S (envelope theorem)</td>
+            </tr>
+            <tr>
+              <td>Hamilton-Jacobi equation</td>
+              <td>Bellman equation V(S) = max{u(c) + βV(S')}</td>
+            </tr>
+            <tr>
+              <td>Green's function (I-A)⁻¹ = Σₖ Aᵏ</td>
+              <td>Network resolvent as path expansion</td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <h3>Discounting as Euclidean Tilt</h3>
+        <p>
+          Physical actions are time-translation invariant, and Noether's theorem delivers conserved energy. 
+          The economist's factor βᵗ is an explicit time dependence: the future literally counts less. 
+          The discrete Noether charge fails to be conserved; in its place the Euler equation prescribes 
+          a drift of the shadow price.
+        </p>
+        <p>
+          Taking the continuous-time limit with discount rate ρ = -ln(β):
+        </p>
+        <div class="math">
+          λ̇ = (ρ - r)λ
+        </div>
+        <p>
+          This is mathematically the same as Wick-rotating to Euclidean time with an imaginary-time-dependent 
+          potential. The model lives in <strong>Euclidean signature</strong> — relaxation, not oscillation.
+        </p>
+        
+        <h3>First-Order Relaxation vs Second-Order Waves</h3>
+        <p>
+          Physical Lagrangians contain kinetic terms φ̇², producing second-order Euler-Lagrange equations: 
+          waves, oscillation, propagation. The economic Lagrangian contains ΔS linearly, inside a constraint. 
+          The resulting dynamics are first-order difference equations — relaxation, not ringing. 
+          Economic systems decay toward their optima like solutions of a diffusion equation.
+        </p>
+        
+        <h3>Description vs Prescription</h3>
+        <p>
+          One genuine difference remains. In Hamilton's principle, nature <em>extremizes</em> the action 
+          and the Euler-Lagrange equations <strong>describe</strong> what happens. In Ramsey's problem, 
+          the planner <em>chooses</em> the path that maximizes welfare, and the Euler equation is a 
+          <strong>normative optimality condition</strong> — a prescription, not a law of motion. 
+          The calculus-of-variations machinery is identical; its ontological status is reversed.
+        </p>
+        
+        <h2>Interactive Examples</h2>
+        <p>
+          Try these pre-configured scenarios in the simulator:
+        </p>
+        <ul style="margin-left: 20px; margin-bottom: 20px;">
+          <li><strong>Star Network:</strong> One central producer feeding multiple households. Observe how shadow prices equalize across connected nodes.</li>
+          <li><strong>Chain Network:</strong> Linear chain of producers. Watch how consumption propagates and dissipates.</li>
+          <li><strong>Two Islands:</strong> Disconnected subgraphs. Note different welfare levels when networks cannot trade.</li>
+        </ul>
+      </div>
+    </div>
+
+    <footer>
+      <p>Econ-Sim · Built for quantumofgravity.com · Based on notes by Anarkitty</p>
+      <p style="font-size: 0.8em; margin-top: 10px;">
+        <a href="https://github.com/space-cadet/econ-sim" style="color: #e74c3c;">GitHub Repository</a>
+      </p>
+    </footer>
+  </div>
+
+  <script type="module">
+    import { App } from './src/ui.js';
+    
+    // Initialize application when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      window.app = new App();
+    });
+  </script>
+</body>
+</html>
