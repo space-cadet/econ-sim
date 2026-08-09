@@ -173,23 +173,49 @@ class Simulator {
     }
   }
 
-  // Main solve loop
-  solve(maxIter = 1000, tol = 1e-6) {
+  // Main solve loop with adaptive learning rate
+  solve(maxIter = 2000, tol = 1e-8) {
     this.initialize();
     let prevWelfare = -Infinity;
+    let bestWelfare = -Infinity;
+    let patience = 0;
+    const patienceLimit = 50;
     
     for (let iter = 0; iter < maxIter; iter++) {
       this.iterations = iter;
       
-      // Primal update
-      this.primalStep(0.05 / (1 + iter * 0.001));
+      // Adaptive learning rate: start high, decay, then stabilize
+      let lr = 0.1;
+      if (iter < 100) lr = 0.1;
+      else if (iter < 500) lr = 0.05;
+      else lr = 0.01;
       
-      // Dual update (shadow prices)
-      this.updateShadowPrices();
+      // Primal update
+      this.primalStep(lr);
+      
+      // Dual update (shadow prices) - less frequent
+      if (iter % 5 === 0) {
+        this.updateShadowPrices();
+      }
       
       // Check convergence
       const welfare = this.computeWelfare();
       const diff = Math.abs(welfare - prevWelfare);
+      
+      // Track best
+      if (welfare > bestWelfare) {
+        bestWelfare = welfare;
+        patience = 0;
+      } else {
+        patience++;
+      }
+      
+      // Early stopping if no improvement
+      if (patience > patienceLimit && iter > 200) {
+        this.converged = true;
+        this.welfare = bestWelfare;
+        break;
+      }
       
       if (diff < tol && iter > 100) {
         this.converged = true;

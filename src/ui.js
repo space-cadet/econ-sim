@@ -7,6 +7,7 @@ import { EconomicGraph } from './graph.js';
 import { Simulator } from './simulation.js';
 import { NetworkVisualization } from './visualization.js';
 import { PlotManager } from './plots.js';
+import { Scenarios } from './scenarios.js';
 
 class App {
   constructor() {
@@ -17,6 +18,9 @@ class App {
     this.isRunning = false;
     this.currentTime = 0;
     this.animationId = null;
+    
+    this.edgeCreationMode = false;
+    this.edgeSourceNode = null;
     
     this.init();
   }
@@ -38,6 +42,15 @@ class App {
     this.updateStabilityIndicator();
     
     // Initial plot
+    this.runSimulation();
+  }
+
+  loadScenario(name) {
+    this.stopAnimation();
+    this.graph = Scenarios[name]();
+    this.visualization.init(this.graph);
+    this.visualization.onNodeClick = (node) => this.onNodeSelected(node);
+    this.updateStabilityIndicator();
     this.runSimulation();
   }
 
@@ -85,6 +98,22 @@ class App {
   }
 
   setupControls() {
+    // Scenario loading
+    document.getElementById('load-scenario').addEventListener('change', (e) => {
+      const scenario = e.target.value;
+      if (scenario && Scenarios[scenario]) {
+        this.loadScenario(scenario);
+      }
+    });
+    
+    // Edge creation mode
+    document.getElementById('toggle-edge-mode').addEventListener('click', () => {
+      this.edgeCreationMode = !this.edgeCreationMode;
+      const btn = document.getElementById('toggle-edge-mode');
+      btn.textContent = this.edgeCreationMode ? '✓ Edge Mode ON' : '🔗 Edge Mode';
+      btn.style.background = this.edgeCreationMode ? '#27ae60' : '#3498db';
+    });
+    
     // Add node buttons
     document.getElementById('add-producer').addEventListener('click', () => {
       this.graph.addNode('producer', { 
@@ -153,6 +182,24 @@ class App {
   }
 
   onNodeSelected(node) {
+    if (this.edgeCreationMode && this.edgeSourceNode === null) {
+      this.edgeSourceNode = node;
+      document.getElementById('node-properties').innerHTML = 
+        `<p style="color: #f39c12;">Selected ${node.label} as edge source. Click another node to connect.</p>`;
+    } else if (this.edgeCreationMode && this.edgeSourceNode !== null) {
+      if (this.edgeSourceNode.id !== node.id) {
+        this.graph.addEdge(this.edgeSourceNode.id, node.id);
+        this.visualization.update();
+        this.updateStabilityIndicator();
+      }
+      this.edgeSourceNode = null;
+      this.edgeCreationMode = false;
+      document.getElementById('toggle-edge-mode').textContent = '🔗 Edge Mode';
+      document.getElementById('toggle-edge-mode').style.background = '#3498db';
+    } else {
+      this.visualization.selectNode(node);
+    }
+    
     const panel = document.getElementById('node-properties');
     panel.innerHTML = `
       <h4>Node ${node.id}: ${node.label}</h4>
