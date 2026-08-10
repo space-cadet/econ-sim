@@ -11,7 +11,7 @@ class PlotManager {
   createTimeSeriesPlot(canvasId, datasets, labels, options = {}) {
     const ctx = document.getElementById(canvasId)?.getContext('2d');
     if (!ctx) return null;
-    
+
     if (this.charts.has(canvasId)) {
       this.charts.get(canvasId).destroy();
     }
@@ -40,13 +40,13 @@ class PlotManager {
           intersect: false,
         },
         plugins: {
-          legend: { 
-            display: true, 
+          legend: {
+            display: true,
             position: 'top',
             labels: { color: '#94a3b8', font: { size: 11 } }
           },
-          title: { 
-            display: !!options.title, 
+          title: {
+            display: !!options.title,
             text: options.title || '',
             color: '#e2e8f0',
             font: { size: 13 }
@@ -60,12 +60,12 @@ class PlotManager {
           },
         },
         scales: {
-          x: { 
+          x: {
             title: { display: true, text: 'Time', color: '#64748b' },
             ticks: { color: '#64748b', maxTicksLimit: 10 },
             grid: { color: '#1e293b' }
           },
-          y: { 
+          y: {
             title: { display: true, text: options.yLabel || 'Value', color: '#64748b' },
             ticks: { color: '#64748b' },
             grid: { color: '#1e293b' }
@@ -82,7 +82,7 @@ class PlotManager {
   createWelfarePlot(canvasId, welfareData, labels) {
     const ctx = document.getElementById(canvasId)?.getContext('2d');
     if (!ctx) return null;
-    
+
     if (this.charts.has(canvasId)) {
       this.charts.get(canvasId).destroy();
     }
@@ -107,12 +107,12 @@ class PlotManager {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { 
+          legend: {
             display: true,
             labels: { color: '#94a3b8', font: { size: 11 } }
           },
-          title: { 
-            display: true, 
+          title: {
+            display: true,
             text: 'Welfare Trajectory',
             color: '#e2e8f0',
             font: { size: 13 }
@@ -126,12 +126,12 @@ class PlotManager {
           },
         },
         scales: {
-          x: { 
+          x: {
             title: { display: true, text: 'Time', color: '#64748b' },
             ticks: { color: '#64748b', maxTicksLimit: 10 },
             grid: { color: '#1e293b' }
           },
-          y: { 
+          y: {
             title: { display: true, text: 'Utility', color: '#64748b' },
             ticks: { color: '#64748b' },
             grid: { color: '#1e293b' }
@@ -149,7 +149,7 @@ class PlotManager {
       // Sanity check: if values are extreme, log scale or clamp
       const maxVal = Math.max(...prices.map(Math.abs));
       const isExtreme = maxVal > 1000;
-      
+
       return {
         label: `Node ${id}`,
         data: isExtreme ? prices.map(v => Math.min(Math.max(v, -100), 100)) : prices,
@@ -178,24 +178,29 @@ class PlotManager {
     const ctx = canvas.getContext('2d');
     const n = matrix.length;
     if (n === 0) return;
-    
-    // Get actual canvas size from parent container
-    const rect = canvas.parentElement.getBoundingClientRect();
+
+    // Get actual canvas size from parent container — fallback if hidden
+    let rect = canvas.parentElement.getBoundingClientRect();
     const padding = 40; // space for labels
-    const availableSize = Math.min(rect.width, rect.height - 30);
-    const size = Math.min(availableSize - padding, 280);
+    
+    // If parent is hidden (display:none), rect will be 0x0. Use fallback.
+    let availableWidth = rect.width || 300;
+    let availableHeight = rect.height || 300;
+    
+    const availableSize = Math.min(availableWidth, availableHeight - 30);
+    const size = Math.min(Math.max(availableSize - padding, 80), 280);
     
     canvas.width = size + padding;
     canvas.height = size + padding;
-    
+
     const cellSize = size / n;
     const offsetX = padding;
     const offsetY = padding;
-    
+
     // Clear background
     ctx.fillStyle = '#020617';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
+
     // Draw grid cells
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
@@ -208,28 +213,28 @@ class PlotManager {
         ctx.fillRect(offsetX + j * cellSize + 0.5, offsetY + i * cellSize + 0.5, cellSize - 1, cellSize - 1);
       }
     }
-    
+
     // Draw labels
     ctx.fillStyle = '#94a3b8';
     const fontSize = Math.max(8, Math.min(11, cellSize * 0.35));
     ctx.font = `${fontSize}px sans-serif`;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    
+
     for (let i = 0; i < n; i++) {
       // Row labels - truncate if too long
       let label = nodeLabels?.[i] ?? String(i);
-      if (label.length > 4) label = label.substring(0, 3) + '…';
+      if (label.length > 4) label = label.substring(0, 3) + '...';
       ctx.fillText(label, offsetX - 6, offsetY + (i + 0.5) * cellSize);
     }
-    
+
     // Column labels - rotated to prevent overlap
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     for (let j = 0; j < n; j++) {
       let label = nodeLabels?.[j] ?? String(j);
-      if (label.length > 4) label = label.substring(0, 3) + '…';
-      
+      if (label.length > 4) label = label.substring(0, 3) + '...';
+
       ctx.save();
       ctx.translate(offsetX + (j + 0.5) * cellSize, offsetY - 10);
       ctx.rotate(-Math.PI / 3);
@@ -242,7 +247,7 @@ class PlotManager {
   createMiniPlot(canvasId, datasets, labels, color) {
     const ctx = document.getElementById(canvasId)?.getContext('2d');
     if (!ctx) return null;
-    
+
     if (this.charts.has(canvasId)) {
       this.charts.get(canvasId).destroy();
     }
@@ -271,7 +276,7 @@ class PlotManager {
         },
         scales: {
           x: { display: false },
-          y: { 
+          y: {
             display: true,
             ticks: { color: '#64748b', font: { size: 8 } },
             grid: { color: '#1e293b' }
@@ -287,7 +292,7 @@ class PlotManager {
 
   getColor(index) {
     const colors = [
-      '#f87171', '#2dd4bf', '#60a5fa', '#fbbf24', 
+      '#f87171', '#2dd4bf', '#60a5fa', '#fbbf24',
       '#a78bfa', '#34d399', '#fb923c', '#e879f9',
     ];
     return colors[index % colors.length];

@@ -191,7 +191,14 @@ class App {
         
         // Resize charts when plots tab becomes visible
         if (target === 'plots-tab') {
-          setTimeout(() => this.plots.charts.forEach(c => c?.resize()), 100);
+          setTimeout(() => {
+            this.plots.charts.forEach(c => c?.resize());
+            // Re-render adjacency heatmap since canvas size may have been wrong when hidden
+            if (this.simulator) {
+              const { matrix: A, labels: nodeLabels } = this.graph.getAdjacencyMatrix();
+              this.plots.createAdjacencyHeatmap('adjacency-plot', A, nodeLabels);
+            }
+          }, 100);
         }
       });
     });
