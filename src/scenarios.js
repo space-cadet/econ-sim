@@ -2,7 +2,7 @@
  * Pre-configured network scenarios for demonstration
  */
 
-import { EconomicGraph } from './graph.js';
+import { EconomicGraph } from './graph.js?v=5';
 
 const Scenarios = {
   // Star network: one central producer, multiple households
@@ -36,10 +36,11 @@ const Scenarios = {
     const h2 = g.addNode('household', { x: 550, y: 250, welfareWeight: 0.8, riskAversion: 1.5, label: 'H2' });
     const p3 = g.addNode('producer', { x: 700, y: 250, productivity: 1.0, label: 'P3' });
     
+    // Chain: P1 -> H1, P2 -> H1, P2 -> H2, P3 -> H2 (bipartite)
     g.addEdge(p1.id, h1.id);
-    g.addEdge(h1.id, p2.id);
+    g.addEdge(p2.id, h1.id);
     g.addEdge(p2.id, h2.id);
-    g.addEdge(h2.id, p3.id);
+    g.addEdge(p3.id, h2.id);
     
     return g;
   },
@@ -57,9 +58,6 @@ const Scenarios = {
     const p2 = g.addNode('producer', { x: 500, y: 350, productivity: 0.5, label: 'P2 (Poor)' });
     const h2 = g.addNode('household', { x: 650, y: 350, welfareWeight: 1.5, riskAversion: 2.0, label: 'H2' });
     g.addEdge(p2.id, h2.id);
-    
-    // Trade link (initially disabled, user can add)
-    // g.addEdge(p1.id, p2.id);
     
     return g;
   },

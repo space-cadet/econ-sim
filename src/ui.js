@@ -3,11 +3,11 @@
  * Manages panels, controls, and simulation workflow
  */
 
-import { EconomicGraph } from './graph.js';
-import { Simulator } from './simulation.js';
-import { NetworkVisualization } from './visualization.js';
-import { PlotManager } from './plots.js';
-import { Scenarios } from './scenarios.js';
+import { EconomicGraph } from './graph.js?v=5';
+import { Simulator } from './simulation.js?v=5';
+import { NetworkVisualization } from './visualization.js?v=5';
+import { PlotManager } from './plots.js?v=5';
+import { Scenarios } from './scenarios.js?v=5';
 
 class App {
   constructor() {
@@ -18,6 +18,7 @@ class App {
     this.isRunning = false;
     this.currentTime = 0;
     this.animationId = null;
+    this.hasShownPlots = false;
     
     this.edgeCreationMode = false;
     this.edgeSourceNode = null;
@@ -26,11 +27,21 @@ class App {
   }
 
   init() {
-    // Create default network: 2 producers, 3 households, star topology
+    // Create default network
     this.createDefaultNetwork();
     
-    // Initialize visualization
-    this.visualization = new NetworkVisualization('#network-viz', 800, 500);
+    // Initialize visualization with color palette
+    const colors = {
+      producer: getComputedStyle(document.documentElement).getPropertyValue('--producer-color').trim() || '#f87171',
+      household: getComputedStyle(document.documentElement).getPropertyValue('--household-color').trim() || '#2dd4bf',
+      edge: '#475569',
+      text: '#e2e8f0',
+      highlight: '#fbbf24',
+      stroke: '#1e293b',
+      flow: '#fbbf24',
+    };
+    
+    this.visualization = new NetworkVisualization('#network-viz', 800, 500, colors);
     this.visualization.init(this.graph);
     this.visualization.onNodeClick = (node) => this.onNodeSelected(node);
     
@@ -89,12 +100,12 @@ class App {
       label: 'H2' 
     });
 
-    // Edges
+    // Edges - bipartite: producers only connect to households
     this.graph.addEdge(p0.id, h0.id);
     this.graph.addEdge(p0.id, h1.id);
-    this.graph.addEdge(p1.id, p0.id);
-    this.graph.addEdge(p1.id, h2.id);
     this.graph.addEdge(p0.id, h2.id);
+    this.graph.addEdge(p1.id, h0.id);
+    this.graph.addEdge(p1.id, h1.id);
   }
 
   setupControls() {
@@ -111,7 +122,7 @@ class App {
       this.edgeCreationMode = !this.edgeCreationMode;
       const btn = document.getElementById('toggle-edge-mode');
       btn.textContent = this.edgeCreationMode ? '✓ Edge Mode ON' : '🔗 Edge Mode';
-      btn.style.background = this.edgeCreationMode ? '#27ae60' : '#3498db';
+      btn.style.background = this.edgeCreationMode ? '#059669' : '#475569';
     });
     
     // Add node buttons
@@ -157,7 +168,7 @@ class App {
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
-      if (e.key === ' ') {
+      if (e.key === ' ' && e.target.tagName !== 'INPUT') {
         e.preventDefault();
         this.toggleAnimation();
       }
@@ -177,6 +188,11 @@ class App {
         
         tab.classList.add('active');
         document.getElementById(target).classList.add('active');
+        
+        // Resize charts when plots tab becomes visible
+        if (target === 'plots-tab') {
+          setTimeout(() => this.plots.charts.forEach(c => c?.resize()), 100);
+        }
       });
     });
   }
@@ -185,7 +201,7 @@ class App {
     if (this.edgeCreationMode && this.edgeSourceNode === null) {
       this.edgeSourceNode = node;
       document.getElementById('node-properties').innerHTML = 
-        `<p style="color: #f39c12;">Selected ${node.label} as edge source. Click another node to connect.</p>`;
+        `<p style="color: #fbbf24; font-weight: 500;">Selected ${node.label} as edge source. Click another node to connect.</p>`;
     } else if (this.edgeCreationMode && this.edgeSourceNode !== null) {
       if (this.edgeSourceNode.id !== node.id) {
         this.graph.addEdge(this.edgeSourceNode.id, node.id);
@@ -195,50 +211,89 @@ class App {
       this.edgeSourceNode = null;
       this.edgeCreationMode = false;
       document.getElementById('toggle-edge-mode').textContent = '🔗 Edge Mode';
-      document.getElementById('toggle-edge-mode').style.background = '#3498db';
+      document.getElementById('toggle-edge-mode').style.background = '#475569';
+      this.onNodeSelected(node); // Show properties of target
+      return;
     } else {
       this.visualization.selectNode(node);
     }
     
     const panel = document.getElementById('node-properties');
+    const typeColor = node.type === 'producer' ? 'var(--producer-color)' : 'var(--household-color)';
     panel.innerHTML = `
-      <h4>Node ${node.id}: ${node.label}</h4>
-      <p>Type: ${node.type}</p>
-      <p>Stock: ${node.stock?.toFixed(2) || 0}</p>
+      <h4 style="color: ${typeColor}; margin-bottom: 8px;">Node ${node.id}: ${node.label}</h4>
+      <p><strong>Type:</strong> ${node.type === 'producer' ? 'Producer 🔴' : 'Household 🟢'}</p>
       ${node.type === 'producer' ? `
-        <p>Productivity: ${node.productivity}</p>
+        <p><strong>Productivity:</strong> ${node.productivity.toFixed(2)}</p>
       ` : `
-        <p>Welfare Weight: ${node.welfareWeight}</p>
-        <p>Risk Aversion (γ): ${node.riskAversion}</p>
+        <p><strong>Welfare Weight:</strong> ${node.welfareWeight.toFixed(2)}</p>
+        <p><strong>Risk Aversion (γ):</strong> ${node.riskAversion.toFixed(2)}</p>
       `}
     `;
   }
 
   updateStabilityIndicator() {
     const rho = this.graph.spectralRadius();
-    const stable = this.graph.isStable();
     const el = document.getElementById('stability-indicator');
     
     el.innerHTML = `
-      <span class="stability-${stable ? 'stable' : 'unstable'}">
-        ρ(A) = ${rho.toFixed(3)} ${stable ? '✓ Stable' : '✗ Unstable'}
+      <span style="color: var(--text-secondary);">
+        ρ(A) = <strong style="color: var(--accent-primary);">${rho.toFixed(3)}</strong>
       </span>
     `;
   }
 
   runSimulation() {
-    const beta = parseFloat(document.getElementById('beta-slider').value);
-    const T = parseInt(document.getElementById('horizon-slider').value);
+    const btn = document.getElementById('run-sim');
+    const originalText = btn.textContent;
+    btn.textContent = '⏳ Solving...';
+    btn.disabled = true;
     
-    this.simulator = new Simulator(this.graph, { beta, T });
-    const result = this.simulator.solve();
+    const statusEl = document.getElementById('convergence-status');
+    statusEl.textContent = 'Running solver...';
+    statusEl.style.color = '#fbbf24';
     
-    document.getElementById('welfare-value').textContent = result.welfare.toFixed(4);
-    document.getElementById('convergence-status').textContent = 
-      result.converged ? `Converged (${result.iterations} iter)` : `Not converged (${result.iterations} iter)`;
-    
-    this.updatePlots();
-    this.currentTime = 0;
+    // Use setTimeout to allow UI update before heavy computation
+    setTimeout(() => {
+      try {
+        const beta = parseFloat(document.getElementById('beta-slider').value);
+        const T = parseInt(document.getElementById('horizon-slider').value);
+        
+        this.simulator = new Simulator(this.graph, { beta, T });
+        const result = this.simulator.solve();
+        
+        // Update status
+        document.getElementById('welfare-value').textContent = result.welfare.toFixed(4);
+        document.getElementById('convergence-status').textContent = 
+          result.converged ? `✓ Converged (${result.iterations} iters)` : `⚠ Not converged (${result.iterations} iters)`;
+        document.getElementById('convergence-status').style.color = result.converged ? '#34d399' : '#f87171';
+        
+        // Update time display
+        document.getElementById('time-display').textContent = `t = 0 / ${T}`;
+        
+        // Update plots
+        this.updatePlots();
+        this.updateInlinePlots();
+        
+        // Show quick results panel
+        document.getElementById('quick-results').style.display = 'block';
+        
+        // Auto-switch to plots on first run
+        if (!this.hasShownPlots) {
+          this.hasShownPlots = true;
+          setTimeout(() => {
+            document.querySelector('[data-tab="plots-tab"]').click();
+          }, 500);
+        }
+      } catch (err) {
+        console.error('Simulation error:', err);
+        document.getElementById('convergence-status').textContent = 'Error: ' + err.message;
+        document.getElementById('convergence-status').style.color = '#f87171';
+      } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+    }, 50);
   }
 
   resetSimulation() {
@@ -246,7 +301,15 @@ class App {
     this.graph = new EconomicGraph();
     this.createDefaultNetwork();
     this.visualization.init(this.graph);
-    this.runSimulation();
+    this.visualization.onNodeClick = (node) => this.onNodeSelected(node);
+    this.updateStabilityIndicator();
+    document.getElementById('welfare-value').textContent = '—';
+    document.getElementById('convergence-status').textContent = '—';
+    document.getElementById('convergence-status').style.color = '';
+    document.getElementById('time-display').textContent = 't = 0';
+    document.getElementById('quick-results').style.display = 'none';
+    this.plots.destroyAll();
+    this.hasShownPlots = false;
   }
 
   toggleAnimation() {
@@ -269,20 +332,13 @@ class App {
       const flows = this.simulator.getFlowData(this.currentTime);
       this.visualization.updateFlows(flows, this.currentTime);
       
-      // Update stocks display
-      const stocks = new Map();
-      for (const [id, arr] of this.simulator.stocks) {
-        stocks.set(id, arr[this.currentTime]);
-      }
-      this.visualization.updateStocks(stocks);
-      
       // Update time display
-      document.getElementById('time-display').textContent = `t = ${this.currentTime}`;
+      document.getElementById('time-display').textContent = `t = ${this.currentTime} / ${this.simulator.T}`;
       
       // Advance time
       this.currentTime = (this.currentTime + 1) % this.simulator.T;
       
-      this.animationId = setTimeout(animate, 500);
+      this.animationId = setTimeout(animate, 600);
     };
     
     animate();
@@ -309,7 +365,10 @@ class App {
       data: this.simulator.getTimeSeries('consumption', h.id),
       color: this.visualization?.getColor?.(i) || null,
     }));
-    this.plots.createTimeSeriesPlot('consumption-plot', consumptionDatasets, labels);
+    this.plots.createTimeSeriesPlot('consumption-plot', consumptionDatasets, labels, {
+      title: 'Consumption Paths',
+      yLabel: 'Consumption',
+    });
     
     // Shadow prices plot
     const nodes = Array.from(this.graph.nodes.values());
@@ -323,9 +382,30 @@ class App {
     this.plots.createWelfarePlot('welfare-plot', this.simulator.getWelfareTrajectory(), labels);
     
     // Adjacency matrix
-    const A = this.graph.getAdjacencyMatrix();
-    const nodeLabels = nodes.map(n => n.label);
+    const { matrix: A, labels: nodeLabels } = this.graph.getAdjacencyMatrix();
     this.plots.createAdjacencyHeatmap('adjacency-plot', A, nodeLabels);
+  }
+
+  updateInlinePlots() {
+    if (!this.simulator) return;
+    
+    const labels = Array.from({ length: this.simulator.T }, (_, i) => i);
+    const households = this.graph.getHouseholds();
+    
+    // Mini consumption plot
+    const consumptionDatasets = households.slice(0, 3).map((h, i) => ({
+      label: h.label,
+      data: this.simulator.getTimeSeries('consumption', h.id),
+      color: this.visualization?.getColor?.(i) || null,
+    }));
+    this.plots.createMiniPlot('mini-consumption', consumptionDatasets, labels);
+    
+    // Mini welfare plot
+    this.plots.createMiniPlot('mini-welfare', [{
+      label: 'Welfare',
+      data: this.simulator.getWelfareTrajectory(),
+      color: '#2dd4bf',
+    }], labels);
   }
 }
 

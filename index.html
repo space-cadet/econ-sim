@@ -7,12 +7,32 @@
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
+    :root {
+      --bg-page: #0f172a;
+      --bg-panel: #1e293b;
+      --bg-canvas: #020617;
+      --bg-input: #0f172a;
+      --text-primary: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-primary: #2dd4bf;
+      --accent-secondary: #60a5fa;
+      --accent-warm: #fbbf24;
+      --producer-color: #f87171;
+      --household-color: #2dd4bf;
+      --highlight: #fbbf24;
+      --border: #334155;
+      --success: #34d399;
+      --error: #f87171;
+      --warning: #fbbf24;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #1a1a2e;
-      color: #eee;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg-page);
+      color: var(--text-primary);
       line-height: 1.6;
     }
     
@@ -24,48 +44,57 @@
     
     header {
       text-align: center;
-      padding: 30px 0;
-      border-bottom: 2px solid #e74c3c;
+      padding: 30px 0 20px;
+      border-bottom: 1px solid var(--border);
       margin-bottom: 20px;
     }
     
     header h1 {
-      font-size: 2.5em;
-      color: #e74c3c;
-      margin-bottom: 10px;
+      font-size: 2.2em;
+      color: var(--accent-primary);
+      margin-bottom: 8px;
+      font-weight: 600;
     }
     
     header p {
-      color: #aaa;
-      font-size: 1.1em;
+      color: var(--text-secondary);
+      font-size: 1.05em;
+    }
+    
+    header p.subtitle {
+      font-size: 0.9em;
+      color: var(--text-muted);
+      margin-top: 4px;
     }
     
     .tabs {
       display: flex;
-      gap: 5px;
+      gap: 2px;
       margin-bottom: 20px;
-      border-bottom: 2px solid #333;
+      border-bottom: 1px solid var(--border);
     }
     
     .tab-button {
-      padding: 12px 24px;
-      background: #16213e;
+      padding: 10px 20px;
+      background: transparent;
       border: none;
-      color: #aaa;
+      color: var(--text-secondary);
       cursor: pointer;
-      font-size: 1em;
+      font-size: 0.95em;
       border-radius: 4px 4px 0 0;
-      transition: all 0.3s;
+      transition: all 0.2s;
+      font-weight: 500;
     }
     
     .tab-button:hover {
-      background: #0f3460;
-      color: #fff;
+      color: var(--text-primary);
+      background: rgba(45, 212, 191, 0.05);
     }
     
     .tab-button.active {
-      background: #e74c3c;
-      color: #fff;
+      background: var(--bg-panel);
+      color: var(--accent-primary);
+      border-bottom: 2px solid var(--accent-primary);
     }
     
     .tab-panel {
@@ -79,150 +108,258 @@
     
     .panel-grid {
       display: grid;
-      grid-template-columns: 250px 1fr;
+      grid-template-columns: 260px 1fr;
       gap: 20px;
     }
     
     .sidebar {
-      background: #16213e;
-      padding: 15px;
+      background: var(--bg-panel);
+      padding: 16px;
       border-radius: 8px;
       height: fit-content;
+      border: 1px solid var(--border);
     }
     
     .sidebar h3 {
-      color: #e74c3c;
-      margin-bottom: 15px;
-      font-size: 1.1em;
+      color: var(--accent-primary);
+      margin-bottom: 14px;
+      font-size: 0.95em;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     
     .control-group {
-      margin-bottom: 15px;
+      margin-bottom: 14px;
     }
     
     .control-group label {
       display: block;
       margin-bottom: 5px;
-      color: #aaa;
-      font-size: 0.9em;
+      color: var(--text-secondary);
+      font-size: 0.85em;
     }
     
     .control-group input[type="range"] {
       width: 100%;
       margin-bottom: 5px;
+      accent-color: var(--accent-primary);
+    }
+    
+    .control-group input[type="number"],
+    .control-group select {
+      width: 100%;
+      padding: 6px 10px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-size: 0.9em;
+    }
+    
+    .control-group input[type="number"]:focus,
+    .control-group select:focus {
+      outline: none;
+      border-color: var(--accent-primary);
     }
     
     .control-group .value-display {
-      color: #e74c3c;
-      font-weight: bold;
+      color: var(--accent-primary);
+      font-weight: 600;
     }
     
     button {
-      background: #e74c3c;
-      color: white;
+      background: var(--accent-primary);
+      color: var(--bg-page);
       border: none;
       padding: 8px 16px;
       border-radius: 4px;
       cursor: pointer;
       font-size: 0.9em;
-      transition: background 0.3s;
+      font-weight: 500;
+      transition: all 0.2s;
       margin: 2px;
     }
     
     button:hover {
-      background: #c0392b;
+      background: #5eead4;
+      transform: translateY(-1px);
+    }
+    
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
     }
     
     button.secondary {
-      background: #3498db;
+      background: var(--bg-input);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
     }
     
     button.secondary:hover {
-      background: #2980b9;
+      background: var(--border);
+      border-color: var(--accent-primary);
+    }
+    
+    button.danger {
+      background: var(--error);
+      color: white;
+    }
+    
+    button.danger:hover {
+      background: #ef4444;
     }
     
     .main-content {
-      background: #16213e;
-      padding: 15px;
-      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
     }
     
     #network-viz {
       width: 100%;
-      height: 500px;
-      background: #0f0f23;
-      border-radius: 4px;
+      height: 450px;
+      background: var(--bg-canvas);
+      border-radius: 8px;
       overflow: hidden;
+      border: 1px solid var(--border);
     }
     
     .status-bar {
       display: flex;
       justify-content: space-between;
-      padding: 10px;
-      background: #0f3460;
-      border-radius: 4px;
-      margin-top: 10px;
+      align-items: center;
+      padding: 10px 16px;
+      background: var(--bg-panel);
+      border-radius: 8px;
       font-size: 0.9em;
+      border: 1px solid var(--border);
     }
     
     .status-bar span {
-      margin-right: 20px;
+      margin-right: 16px;
     }
     
-    .stability-stable { color: #2ecc71; }
-    .stability-unstable { color: #e74c3c; }
+    .status-bar strong {
+      color: var(--accent-primary);
+    }
     
+    .node-properties {
+      background: var(--bg-canvas);
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 12px;
+      min-height: 80px;
+      font-size: 0.85em;
+      border: 1px solid var(--border);
+    }
+    
+    .node-properties p {
+      margin-bottom: 4px;
+      color: var(--text-secondary);
+    }
+    
+    /* Quick Results Panel */
+    .quick-results {
+      display: none;
+      background: var(--bg-panel);
+      border-radius: 8px;
+      padding: 16px;
+      border: 1px solid var(--border);
+    }
+    
+    .quick-results h4 {
+      color: var(--accent-primary);
+      margin-bottom: 12px;
+      font-size: 0.9em;
+    }
+    
+    .mini-plots {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    
+    .mini-plot-container {
+      background: var(--bg-canvas);
+      border-radius: 6px;
+      padding: 10px;
+      height: 160px;
+    }
+    
+    .mini-plot-container h5 {
+      color: var(--text-secondary);
+      font-size: 0.8em;
+      margin-bottom: 6px;
+    }
+    
+    .mini-plot-container canvas {
+      max-height: 120px;
+    }
+    
+    /* Plots Tab */
     .plots-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 15px;
+      gap: 16px;
     }
     
     .plot-container {
-      background: #0f0f23;
-      padding: 15px;
+      background: var(--bg-panel);
+      padding: 16px;
       border-radius: 8px;
-      height: 350px;
+      height: 340px;
+      border: 1px solid var(--border);
     }
     
     .plot-container h4 {
-      color: #e74c3c;
+      color: var(--accent-primary);
       margin-bottom: 10px;
+      font-size: 0.95em;
     }
     
     .plot-container canvas {
-      max-height: 300px;
+      max-height: 280px;
     }
     
+    /* Documentation Tab */
     .docs-content {
       max-width: 900px;
       margin: 0 auto;
     }
     
     .docs-content h2 {
-      color: #e74c3c;
+      color: var(--accent-primary);
       margin: 30px 0 15px;
-      border-bottom: 1px solid #333;
+      border-bottom: 1px solid var(--border);
       padding-bottom: 10px;
+      font-size: 1.4em;
     }
     
     .docs-content h3 {
-      color: #3498db;
+      color: var(--accent-secondary);
       margin: 20px 0 10px;
+      font-size: 1.15em;
     }
     
     .docs-content p {
       margin-bottom: 15px;
       text-align: justify;
+      color: var(--text-secondary);
     }
     
     .docs-content .math {
-      background: #0f0f23;
-      padding: 15px;
-      border-radius: 4px;
+      background: var(--bg-canvas);
+      padding: 16px;
+      border-radius: 6px;
       margin: 15px 0;
       font-family: 'Courier New', monospace;
       overflow-x: auto;
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      font-size: 0.95em;
     }
     
     .comparison-table {
@@ -235,46 +372,54 @@
     .comparison-table td {
       padding: 12px;
       text-align: left;
-      border-bottom: 1px solid #333;
+      border-bottom: 1px solid var(--border);
     }
     
     .comparison-table th {
-      background: #0f3460;
-      color: #e74c3c;
+      background: var(--bg-canvas);
+      color: var(--accent-primary);
+      font-weight: 600;
+    }
+    
+    .comparison-table td {
+      color: var(--text-secondary);
     }
     
     .comparison-table tr:hover {
-      background: #1a1a3e;
-    }
-    
-    .node-properties {
-      background: #0f0f23;
-      padding: 10px;
-      border-radius: 4px;
-      margin-top: 10px;
-      min-height: 100px;
+      background: rgba(45, 212, 191, 0.03);
     }
     
     footer {
       text-align: center;
       padding: 30px;
-      color: #666;
-      border-top: 1px solid #333;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
       margin-top: 40px;
+      font-size: 0.9em;
+    }
+    
+    footer a {
+      color: var(--accent-primary);
+      text-decoration: none;
+    }
+    
+    footer a:hover {
+      text-decoration: underline;
     }
     
     @media (max-width: 900px) {
       .panel-grid { grid-template-columns: 1fr; }
       .plots-grid { grid-template-columns: 1fr; }
+      .mini-plots { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>🌐 Econ-Sim</h1>
+      <h1>Econ-Sim</h1>
       <p>Networked Intertemporal Optimization — Ramsey Planner on Graphs</p>
-      <p style="font-size: 0.9em; color: #666;">Based on notes by Anarkitty · Physics-Economics Field Theory Analogy</p>
+      <p class="subtitle">Based on notes by Anarkitty · Physics-Economics Field Theory Analogy</p>
     </header>
 
     <div class="tabs">
@@ -291,7 +436,7 @@
           
           <div class="control-group">
             <label>Load Scenario</label>
-            <select id="load-scenario" style="width: 100%; padding: 5px;">
+            <select id="load-scenario">
               <option value="">-- Select --</option>
               <option value="star">⭐ Star Network</option>
               <option value="chain">⛓️ Chain Network</option>
@@ -302,28 +447,28 @@
           </div>
           
           <div class="control-group">
-            <button id="toggle-edge-mode">🔗 Edge Mode</button>
+            <button id="toggle-edge-mode" class="secondary">🔗 Edge Mode</button>
           </div>
           
           <div class="control-group">
             <label>Add Producer</label>
-            <input type="number" id="prod-productivity" value="1.5" step="0.1" min="0.1" style="width: 100%; padding: 5px; margin-bottom: 5px;">
+            <input type="number" id="prod-productivity" value="1.5" step="0.1" min="0.1" placeholder="Productivity">
             <button id="add-producer">➕ Producer</button>
           </div>
           
           <div class="control-group">
             <label>Add Household</label>
-            <input type="number" id="hh-weight" value="1.0" step="0.1" min="0.1" style="width: 100%; padding: 5px; margin-bottom: 5px;" placeholder="Welfare weight">
-            <input type="number" id="hh-gamma" value="2.0" step="0.1" min="0.5" style="width: 100%; padding: 5px; margin-bottom: 5px;" placeholder="Risk aversion γ">
+            <input type="number" id="hh-weight" value="1.0" step="0.1" min="0.1" placeholder="Welfare weight">
+            <input type="number" id="hh-gamma" value="2.0" step="0.1" min="0.5" placeholder="Risk aversion γ">
             <button id="add-household">➕ Household</button>
           </div>
           
           <div class="control-group">
-            <button id="remove-node" class="secondary">🗑️ Remove Selected</button>
+            <button id="remove-node" class="danger">🗑️ Remove Selected</button>
           </div>
           
           <div id="node-properties" class="node-properties">
-            <p style="color: #666;">Click a node to see properties</p>
+            <p style="color: var(--text-muted);">Click a node to see properties</p>
           </div>
           
           <h3 style="margin-top: 20px;">Simulation Parameters</h3>
@@ -341,12 +486,28 @@
           <div class="control-group">
             <button id="run-sim">▶ Run Simulation</button>
             <button id="play-animation" class="secondary">▶ Play</button>
-            <button id="reset-sim">↺ Reset</button>
+            <button id="reset-sim" class="secondary">↺ Reset</button>
           </div>
         </div>
         
         <div class="main-content">
           <div id="network-viz"></div>
+          
+          <!-- Quick Results (appears after run) -->
+          <div id="quick-results" class="quick-results">
+            <h4>📊 Quick Results</h4>
+            <div class="mini-plots">
+              <div class="mini-plot-container">
+                <h5>Consumption</h5>
+                <canvas id="mini-consumption"></canvas>
+              </div>
+              <div class="mini-plot-container">
+                <h5>Welfare</h5>
+                <canvas id="mini-welfare"></canvas>
+              </div>
+            </div>
+          </div>
+          
           <div class="status-bar">
             <span id="stability-indicator"></span>
             <span>Welfare: <strong id="welfare-value">—</strong></span>
@@ -398,7 +559,7 @@
           The planner maximizes welfare over an infinite horizon (approximated by finite T):
         </p>
         <div class="math">
-          W = Σₜ₌₀^∞ βᵗ Σᵈ₌₁^D ωᵈ uᵈ(cᵈₜ)
+          W = Σₜ₌₀^∞ βᵗ Σᵈ₌₁ᴰ ωᵈ uᵈ(cᵈₜ)
         </div>
         <p>
           Where <strong>β ∈ (0,1)</strong> is the discount factor, <strong>ωᵈ</strong> are welfare weights 
@@ -414,15 +575,6 @@
         <p>
           Production + net transfers in - consumption - change in stock = 0, at every node, every period.
           This is the <strong>economic analogue of a continuity equation</strong> on a graph.
-        </p>
-        
-        <p><strong>Network stability condition:</strong></p>
-        <div class="math">
-          ρ(A) &lt; 1
-        </div>
-        <p>
-          The spectral radius of the adjacency matrix must be strictly below one. This ensures 
-          the Neumann series (I - A)⁻¹ = Σₖ Aᵏ converges — the network's "Green's function" exists.
         </p>
         
         <h3>First-Order Conditions</h3>
@@ -504,10 +656,6 @@
               <td>Hamilton-Jacobi equation</td>
               <td>Bellman equation V(S) = max{u(c) + βV(S')}</td>
             </tr>
-            <tr>
-              <td>Green's function (I-A)⁻¹ = Σₖ Aᵏ</td>
-              <td>Network resolvent as path expansion</td>
-            </tr>
           </tbody>
         </table>
         
@@ -550,7 +698,7 @@
         <p>
           Try these pre-configured scenarios in the simulator:
         </p>
-        <ul style="margin-left: 20px; margin-bottom: 20px;">
+        <ul style="margin-left: 20px; margin-bottom: 20px; color: var(--text-secondary);">
           <li><strong>Star Network:</strong> One central producer feeding multiple households. Observe how shadow prices equalize across connected nodes.</li>
           <li><strong>Chain Network:</strong> Linear chain of producers. Watch how consumption propagates and dissipates.</li>
           <li><strong>Two Islands:</strong> Disconnected subgraphs. Note different welfare levels when networks cannot trade.</li>
@@ -560,16 +708,15 @@
 
     <footer>
       <p>Econ-Sim · Built for quantumofgravity.com · Based on notes by Anarkitty</p>
-      <p style="font-size: 0.8em; margin-top: 10px;">
-        <a href="https://github.com/space-cadet/econ-sim" style="color: #e74c3c;">GitHub Repository</a>
+      <p style="margin-top: 8px;">
+        <a href="https://github.com/space-cadet/econ-sim">GitHub Repository</a>
       </p>
     </footer>
   </div>
 
   <script type="module">
-    import { App } from './src/ui.js';
+    import { App } from './src/ui.js?v=5';
     
-    // Initialize application when DOM is ready
     document.addEventListener('DOMContentLoaded', () => {
       window.app = new App();
     });

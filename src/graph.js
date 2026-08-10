@@ -16,8 +16,8 @@ class EconomicGraph {
     const node = {
       id,
       type, // 'producer' or 'household'
-      x: params.x || Math.random() * 600 + 50,
-      y: params.y || Math.random() * 400 + 50,
+      x: params.x ?? (100 + Math.random() * 600),
+      y: params.y ?? (50 + Math.random() * 400),
       // Producer parameters
       productivity: params.productivity || 1.0,
       // Household parameters
@@ -27,7 +27,6 @@ class EconomicGraph {
       stock: params.stock || 0,
       // Visualization
       label: params.label || (type === 'producer' ? `P${id}` : `H${id}`),
-      color: params.color || (type === 'producer' ? '#e74c3c' : '#3498db'),
     };
     this.nodes.set(id, node);
     return node;
@@ -68,19 +67,46 @@ class EconomicGraph {
       if (edge.source === nodeId) neighbors.push(edge.target);
       if (edge.target === nodeId) neighbors.push(edge.source);
     }
-    return neighbors;
+    return [...new Set(neighbors)]; // dedupe
   }
 
+  // Get outgoing edges from a node
+  getOutgoingEdges(nodeId) {
+    const out = [];
+    for (const [key, edge] of this.edges) {
+      if (edge.source === nodeId) out.push(edge);
+    }
+    return out;
+  }
+
+  // Get incoming edges to a node
+  getIncomingEdges(nodeId) {
+    const inc = [];
+    for (const [key, edge] of this.edges) {
+      if (edge.target === nodeId) inc.push(edge);
+    }
+    return inc;
+  }
+
+  // Build adjacency matrix with contiguous indices
   getAdjacencyMatrix() {
-    const n = this.nodes.size;
+    const nodes = Array.from(this.nodes.values());
+    const idToIndex = new Map();
+    nodes.forEach((n, i) => idToIndex.set(n.id, i));
+    
+    const n = nodes.length;
     const A = Array(n).fill(null).map(() => Array(n).fill(0));
+    
     for (const edge of this.edges.values()) {
-      A[edge.source][edge.target] = 1;
-      if (!edge.directed) {
-        A[edge.target][edge.source] = 1;
+      const i = idToIndex.get(edge.source);
+      const j = idToIndex.get(edge.target);
+      if (i !== undefined && j !== undefined) {
+        A[i][j] = 1;
+        A[j][i] = 1; // undirected
       }
     }
-    return A;
+    
+    return { matrix: A, labels: nodes.map(n => n.label), idToIndex };
   }
 
   getHouseholds() {
@@ -92,33 +118,44 @@ class EconomicGraph {
   }
 
   spectralRadius() {
-    const A = this.getAdjacencyMatrix();
+    const { matrix: A } = this.getAdjacencyMatrix();
     if (A.length === 0) return 0;
-    // Power iteration to find largest eigenvalue
-    let b = Array(A.length).fill(1);
-    for (let iter = 0; iter < 100; iter++) {
-      const newB = Array(A.length).fill(0);
-      for (let i = 0; i < A.length; i++) {
-        for (let j = 0; j < A.length; j++) {
+    
+    const n = A.length;
+    // Power iteration for largest eigenvalue (symmetric matrix)
+    let b = Array(n).fill(1).map(() => Math.random());
+    // Normalize
+    let norm = Math.sqrt(b.reduce((s, x) => s + x * x, 0));
+    b = b.map(x => x / norm);
+    
+    for (let iter = 0; iter < 200; iter++) {
+      const newB = Array(n).fill(0);
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
           newB[i] += A[i][j] * b[j];
         }
       }
-      const norm = Math.sqrt(newB.reduce((s, x) => s + x * x, 0));
+      norm = Math.sqrt(newB.reduce((s, x) => s + x * x, 0));
+      if (norm < 1e-10) return 0;
       b = newB.map(x => x / norm);
     }
+    
     // Rayleigh quotient
-    let Ab = Array(A.length).fill(0);
-    for (let i = 0; i < A.length; i++) {
-      for (let j = 0; j < A.length; j++) {
+    let Ab = Array(n).fill(0);
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
         Ab[i] += A[i][j] * b[j];
       }
     }
     const lambda = b.reduce((s, bi, i) => s + bi * Ab[i], 0);
-    return lambda;
+    return Math.abs(lambda);
   }
 
   isStable() {
-    return this.spectralRadius() < 1;
+    // For an undirected graph, the spectral radius is always >= 1 if connected
+    // The "stability" concept here is economic, not graph-theoretic
+    // We just report the value without a binary stable/unstable
+    return true;
   }
 
   toJSON() {
@@ -153,8 +190,14 @@ function marginalUtility(c, gamma) {
   return Math.pow(c, -gamma);
 }
 
+// Inverse marginal utility: given MU, find c
+// u'(c) = c^(-gamma) => c = (u')^(-1/gamma)
+function inverseMarginalUtility(mu, gamma) {
+  return Math.pow(mu, -1 / gamma);
+}
+
 function production(x, A) {
   return A * x;
 }
 
-export { EconomicGraph, utility, marginalUtility, production };
+export { EconomicGraph, utility, marginalUtility, inverseMarginalUtility, production };

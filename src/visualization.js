@@ -4,7 +4,7 @@
  */
 
 class NetworkVisualization {
-  constructor(containerId, width = 800, height = 500) {
+  constructor(containerId, width = 800, height = 500, colors = {}) {
     this.container = d3.select(containerId);
     this.width = width;
     this.height = height;
@@ -15,6 +15,20 @@ class NetworkVisualization {
     this.onEdgeClick = null;
     this.selectedNode = null;
     this.flowAnimationEnabled = true;
+    
+    // Color palette
+    this.colors = {
+      producer: colors.producer || '#f87171',
+      household: colors.household || '#2dd4bf',
+      producerFill: colors.producer || '#f87171',
+      householdFill: colors.household || '#2dd4bf',
+      edge: colors.edge || '#475569',
+      text: colors.text || '#e2e8f0',
+      highlight: colors.highlight || '#fbbf24',
+      stroke: colors.stroke || '#1e293b',
+      flow: colors.flow || '#fbbf24',
+      ...colors,
+    };
   }
 
   init(graph) {
@@ -23,24 +37,25 @@ class NetworkVisualization {
     
     this.svg = this.container
       .append("svg")
-      .attr("width", this.width)
-      .attr("height", this.height)
-      .attr("viewBox", [0, 0, this.width, this.height]);
+      .attr("width", "100%")
+      .attr("height", "100%")
+      .attr("viewBox", [0, 0, this.width, this.height])
+      .style("background", "#020617");
 
     // Define arrow markers
-    this.svg.append("defs").selectAll("marker")
-      .data(["arrow"])
-      .enter().append("marker")
-      .attr("id", d => d)
+    const defs = this.svg.append("defs");
+    
+    defs.append("marker")
+      .attr("id", "arrow")
       .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 25)
+      .attr("refX", 28)
       .attr("refY", 0)
       .attr("markerWidth", 6)
       .attr("markerHeight", 6)
       .attr("orient", "auto")
       .append("path")
       .attr("d", "M0,-5L10,0L0,5")
-      .attr("fill", "#7f8c8d");
+      .attr("fill", this.colors.edge);
 
     // Groups for layering
     this.linkGroup = this.svg.append("g").attr("class", "links");
@@ -55,37 +70,45 @@ class NetworkVisualization {
 
     const nodes = Array.from(this.graph.nodes.values());
     const links = Array.from(this.graph.edges.values()).map(e => ({
-      source: e.source,
-      target: e.target,
+      source: nodes.find(n => n.id === e.source),
+      target: nodes.find(n => n.id === e.target),
       id: `${e.source}-${e.target}`,
       value: e.flow || 0,
-    }));
+    })).filter(l => l.source && l.target); // ensure both endpoints exist
 
-    // D3 force simulation
-    this.simulation = d3.forceSimulation(nodes)
-      .force("link", d3.forceLink(links).id(d => d.id).distance(100))
-      .force("charge", d3.forceManyBody().strength(-300))
-      .force("center", d3.forceCenter(this.width / 2, this.height / 2))
-      .force("collision", d3.forceCollide().radius(30));
+    // Initialize or update force simulation
+    if (!this.simulation) {
+      this.simulation = d3.forceSimulation(nodes)
+        .force("link", d3.forceLink(links).id(d => d.id).distance(120))
+        .force("charge", d3.forceManyBody().strength(-400))
+        .force("center", d3.forceCenter(this.width / 2, this.height / 2))
+        .force("collision", d3.forceCollide().radius(35));
+    } else {
+      this.simulation.nodes(nodes);
+      this.simulation.force("link").links(links);
+    }
 
-    // Draw links
+    // Update links with proper D3 join pattern
     const link = this.linkGroup.selectAll("line")
       .data(links, d => d.id);
 
     link.exit().remove();
 
     const linkEnter = link.enter().append("line")
-      .attr("stroke", "#7f8c8d")
-      .attr("stroke-width", d => Math.max(1, Math.sqrt(d.value) * 2))
+      .attr("stroke", this.colors.edge)
+      .attr("stroke-width", 2)
       .attr("marker-end", "url(#arrow)");
 
-    // Draw nodes
-    const node = this.nodeGroup.selectAll("g")
+    const linkUpdate = link.merge(linkEnter);
+
+    // Update nodes with proper D3 join pattern
+    const node = this.nodeGroup.selectAll("g.node")
       .data(nodes, d => d.id);
 
     node.exit().remove();
 
     const nodeEnter = node.enter().append("g")
+      .attr("class", "node")
       .attr("cursor", "pointer")
       .call(d3.drag()
         .on("start", (e, d) => this.dragstarted(e, d))
@@ -94,23 +117,29 @@ class NetworkVisualization {
 
     // Node circles
     nodeEnter.append("circle")
-      .attr("r", 20)
-      .attr("fill", d => d.type === 'producer' ? '#e74c3c' : '#3498db')
-      .attr("stroke", d => d === this.selectedNode ? '#f39c12' : '#2c3e50')
-      .attr("stroke-width", d => d === this.selectedNode ? 4 : 2)
-      .attr("fill-opacity", d => d.type === 'household' ? 0.3 : 0.9)
-      .on("click", (e, d) => {
-        e.stopPropagation();
-        this.selectNode(d);
-      });
+      .attr("r", 22)
+      .attr("fill", d => d.type === 'producer' ? this.colors.producerFill : this.colors.householdFill)
+      .attr("fill-opacity", d => d.type === 'household' ? 0.25 : 0.9)
+      .attr("stroke", this.colors.stroke)
+      .attr("stroke-width", 2);
+
+    // Selection ring (separate element for easy updating)
+    nodeEnter.append("circle")
+      .attr("class", "selection-ring")
+      .attr("r", 26)
+      .attr("fill", "none")
+      .attr("stroke", this.colors.highlight)
+      .attr("stroke-width", 3)
+      .attr("opacity", 0);
 
     // Node labels
     nodeEnter.append("text")
-      .attr("dy", 35)
+      .attr("class", "node-label")
+      .attr("dy", 38)
       .attr("text-anchor", "middle")
-      .attr("font-size", "12px")
-      .attr("fill", "#2c3e50")
-      .text(d => d.label);
+      .attr("font-size", "11px")
+      .attr("font-weight", "500")
+      .attr("fill", this.colors.text);
 
     // Stock indicator
     nodeEnter.append("text")
@@ -118,32 +147,62 @@ class NetworkVisualization {
       .attr("dy", 5)
       .attr("text-anchor", "middle")
       .attr("font-size", "10px")
-      .attr("fill", "white")
-      .text(d => d.stock?.toFixed(1) || "0");
+      .attr("font-weight", "600")
+      .attr("fill", this.colors.text)
+      .text(d => d.type === 'producer' ? 'P' : 'H');
 
-    // Merge and update positions
+    // MERGE + UPDATE existing nodes
+    const nodeUpdate = node.merge(nodeEnter);
+    
+    nodeUpdate.select("circle:first-child")
+      .attr("fill", d => d.type === 'producer' ? this.colors.producerFill : this.colors.householdFill)
+      .attr("fill-opacity", d => d.type === 'household' ? 0.25 : 0.9);
+    
+    nodeUpdate.select("circle.selection-ring")
+      .attr("opacity", d => d === this.selectedNode ? 1 : 0);
+    
+    nodeUpdate.select("text.node-label")
+      .text(d => d.label);
+    
+    nodeUpdate.select("text.stock-label")
+      .text(d => d.type === 'producer' ? 'P' : 'H');
+    
+    nodeUpdate.on("click", (e, d) => {
+      e.stopPropagation();
+      this.selectNode(d);
+    });
+
+    // Update positions on tick
     this.simulation.on("tick", () => {
-      this.linkGroup.selectAll("line")
+      linkUpdate
         .attr("x1", d => d.source.x)
         .attr("y1", d => d.source.y)
         .attr("x2", d => d.target.x)
         .attr("y2", d => d.target.y);
 
-      this.nodeGroup.selectAll("g")
-        .attr("transform", d => `translate(${d.x},${d.y})`);
+      nodeUpdate.attr("transform", d => `translate(${d.x},${d.y})`);
     });
 
-    // Keep nodes within bounds
-    nodes.forEach(d => {
-      d.x = Math.max(20, Math.min(this.width - 20, d.x));
-      d.y = Math.max(20, Math.min(this.height - 20, d.y));
-    });
+    // Only re-heat if structure changed
+    if (node.enter().size() > 0 || node.exit().size() > 0 || link.enter().size() > 0) {
+      this.simulation.alpha(0.3).restart();
+    }
   }
 
   selectNode(node) {
     this.selectedNode = node;
-    this.update();
+    // Update selection ring without full re-render
+    this.nodeGroup.selectAll("g.node").select("circle.selection-ring")
+      .attr("opacity", d => d === this.selectedNode ? 1 : 0);
     if (this.onNodeClick) this.onNodeClick(node);
+  }
+
+  getColor(index) {
+    const palette = [
+      '#f87171', '#2dd4bf', '#60a5fa', '#fbbf24', 
+      '#a78bfa', '#34d399', '#fb923c', '#e879f9',
+    ];
+    return palette[index % palette.length];
   }
 
   dragstarted(event, d) {
@@ -163,12 +222,14 @@ class NetworkVisualization {
     d.fy = null;
   }
 
-  // Update flow visualization
+  // Update flow visualization with animated particles
   updateFlows(flowData, timeStep) {
     if (!this.flowAnimationEnabled) return;
 
+    const activeFlows = flowData.filter(d => d.value > 0.01);
+    
     const flows = this.flowGroup.selectAll("circle.flow-particle")
-      .data(flowData.filter(d => d.value > 0.01), d => `${d.source}-${d.target}-${timeStep}`);
+      .data(activeFlows, d => `${d.source}-${d.target}-${timeStep}`);
 
     flows.exit().remove();
 
@@ -176,23 +237,51 @@ class NetworkVisualization {
     
     flows.enter().append("circle")
       .attr("class", "flow-particle")
-      .attr("r", d => Math.max(2, Math.sqrt(d.value) * 3))
-      .attr("fill", "#f39c12")
-      .attr("opacity", 0.8)
-      .attr("cx", d => nodes.get(d.source)?.x || 0)
-      .attr("cy", d => nodes.get(d.source)?.y || 0)
+      .attr("r", d => Math.max(3, Math.min(8, Math.sqrt(d.value) * 4)))
+      .attr("fill", this.colors.flow)
+      .attr("opacity", 0.9)
+      .attr("cx", d => {
+        const n = nodes.get(d.source);
+        return n ? n.x : 0;
+      })
+      .attr("cy", d => {
+        const n = nodes.get(d.source);
+        return n ? n.y : 0;
+      })
       .transition()
-      .duration(1000)
+      .duration(800)
       .ease(d3.easeLinear)
-      .attr("cx", d => nodes.get(d.target)?.x || 0)
-      .attr("cy", d => nodes.get(d.target)?.y || 0)
+      .attr("cx", d => {
+        const n = nodes.get(d.target);
+        return n ? n.x : 0;
+      })
+      .attr("cy", d => {
+        const n = nodes.get(d.target);
+        return n ? n.y : 0;
+      })
       .remove();
   }
 
   // Update node stocks display
   updateStocks(stocks) {
-    this.nodeGroup.selectAll("text.stock-label")
-      .text(d => stocks.get(d.id)?.toFixed(1) || "0");
+    this.nodeGroup.selectAll("g.node").select("text.stock-label")
+      .text(d => {
+        const s = stocks.get(d.id);
+        return s !== undefined ? s.toFixed(1) : (d.stock?.toFixed(1) ?? "0");
+      });
+  }
+
+  // Resize to container
+  resize(width, height) {
+    this.width = width;
+    this.height = height;
+    if (this.svg) {
+      this.svg.attr("viewBox", [0, 0, width, height]);
+    }
+    if (this.simulation) {
+      this.simulation.force("center", d3.forceCenter(width / 2, height / 2));
+      this.simulation.alpha(0.3).restart();
+    }
   }
 
   destroy() {

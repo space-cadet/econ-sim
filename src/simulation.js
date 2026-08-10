@@ -1,43 +1,75 @@
 /**
  * Core simulation engine for networked intertemporal optimization
- * Implements the planner's problem with gradient-based solver
+ * 
+ * Solver approach: Optimize over transfers only, derive consumption from flow balance.
+ * Each producer's total outflow is constrained to equal its productivity.
+ * This makes the problem feasible by construction and avoids dual variable blowup.
  */
 
-import { EconomicGraph, utility, marginalUtility, production } from './graph.js';
+import { EconomicGraph, utility, marginalUtility } from './graph.js?v=5';
 
 class Simulator {
   constructor(graph, params = {}) {
     this.graph = graph;
-    this.beta = params.beta || 0.95; // discount factor
-    this.T = params.T || 50; // time horizon (finite approximation)
-    this.dt = params.dt || 1.0; // time step
+    this.beta = params.beta || 0.95;
+    this.T = params.T || 50;
     
-    // Initialize state arrays: [time][node_id]
-    this.consumption = new Map(); // household_id -> array[T]
+    // Decision variables: transfers along each edge
     this.transfers = new Map(); // "i-j" -> array[T]
-    this.stocks = new Map(); // node_id -> array[T]
+    
+    // Derived quantities
+    this.consumption = new Map(); // household_id -> array[T]
     this.shadowPrices = new Map(); // node_id -> array[T]
     
     this.welfare = 0;
     this.converged = false;
     this.iterations = 0;
+    this.welfareTrajectory = [];
   }
 
   initialize() {
-    const households = this.graph.getHouseholds();
     const edges = Array.from(this.graph.edges.values());
-    const nodes = Array.from(this.graph.nodes.values());
-
-    // Initialize with uniform consumption and zero transfers
-    for (const h of households) {
-      this.consumption.set(h.id, Array(this.T).fill(0.5));
-    }
+    const households = this.graph.getHouseholds();
+    
+    // Initialize transfers: distribute equally among outgoing edges
     for (const edge of edges) {
       this.transfers.set(`${edge.source}-${edge.target}`, Array(this.T).fill(0));
     }
-    for (const node of nodes) {
-      this.stocks.set(node.id, Array(this.T).fill(node.stock || 0));
-      this.shadowPrices.set(node.id, Array(this.T).fill(1));
+    
+    for (const h of households) {
+      this.consumption.set(h.id, Array(this.T).fill(0));
+    }
+    
+    // Set initial transfers: producers split output equally among outgoing edges
+    const producers = this.graph.getProducers();
+    for (const p of producers) {
+      const outEdges = this.graph.getOutgoingEdges(p.id);
+      if (outEdges.length > 0) {
+        const share = p.productivity / outEdges.length;
+        for (const edge of outEdges) {
+          const arr = this.transfers.get(`${edge.source}-${edge.target}`);
+          for (let t = 0; t < this.T; t++) {
+            arr[t] = share;
+          }
+        }
+      }
+    }
+  }
+
+  // Compute consumption from transfers using flow balance
+  // Household consumption = sum of incoming transfers
+  computeConsumption() {
+    const households = this.graph.getHouseholds();
+    
+    for (let t = 0; t < this.T; t++) {
+      for (const h of households) {
+        let inflow = 0;
+        const incoming = this.graph.getIncomingEdges(h.id);
+        for (const edge of incoming) {
+          inflow += this.transfers.get(`${edge.source}-${edge.target}`)?.[t] || 0;
+        }
+        this.consumption.get(h.id)[t] = Math.max(0.001, inflow);
+      }
     }
   }
 
@@ -47,162 +79,134 @@ class Simulator {
     const households = this.graph.getHouseholds();
     
     for (let t = 0; t < this.T; t++) {
+      let periodWelfare = 0;
       for (const h of households) {
         const c = this.consumption.get(h.id)[t];
-        const weight = h.welfareWeight;
-        const gamma = h.riskAversion;
-        W += Math.pow(this.beta, t) * weight * utility(Math.max(c, 0.001), gamma);
+        periodWelfare += h.welfareWeight * utility(c, h.riskAversion);
       }
+      W += Math.pow(this.beta, t) * periodWelfare;
     }
     return W;
   }
 
-  // Check node flow balance constraint
-  checkFlowBalance(nodeId, t) {
-    const node = this.graph.nodes.get(nodeId);
-    const neighbors = this.graph.getNeighbors(nodeId);
-    
-    let production = 0;
-    if (node.type === 'producer') {
-      production = node.productivity; // simplified: constant production
-    }
-    
-    let netTransfers = 0;
-    for (const nbr of neighbors) {
-      const outKey = `${nodeId}-${nbr}`;
-      const inKey = `${nbr}-${nodeId}`;
-      const outFlow = this.transfers.get(outKey)?.[t] || 0;
-      const inFlow = this.transfers.get(inKey)?.[t] || 0;
-      netTransfers += inFlow - outFlow;
-    }
-    
-    let consumption = 0;
-    if (node.type === 'household') {
-      consumption = this.consumption.get(nodeId)[t] || 0;
-    }
-    
-    const stock_t = this.stocks.get(nodeId)[t] || 0;
-    const stock_tp1 = t < this.T - 1 ? (this.stocks.get(nodeId)[t + 1] || 0) : stock_t;
-    const deltaStock = stock_tp1 - stock_t;
-    
-    return production + netTransfers - consumption - deltaStock;
-  }
-
-  // Compute gradient of Lagrangian w.r.t. consumption
-  gradientConsumption(householdId, t) {
-    const h = this.graph.nodes.get(householdId);
-    const c = Math.max(this.consumption.get(householdId)[t], 0.001);
-    const weight = h.welfareWeight;
-    const gamma = h.riskAversion;
-    
-    // ∂L/∂c = β^t · ω · u'(c) - λ_t
-    const shadowPrice = this.shadowPrices.get(householdId)[t];
-    const grad = Math.pow(this.beta, t) * weight * marginalUtility(c, gamma) - shadowPrice;
-    
-    return grad;
-  }
-
-  // Compute gradient w.r.t. transfers
-  gradientTransfer(sourceId, targetId, t) {
-    const lambdaSource = this.shadowPrices.get(sourceId)[t];
-    const lambdaTarget = this.shadowPrices.get(targetId)[t];
-    return lambdaTarget - lambdaSource; // λ_target - λ_source
-  }
-
-  // Compute gradient w.r.t. stocks (Euler equation)
-  gradientStock(nodeId, t) {
-    if (t === 0) return 0; // initial stock fixed
-    
-    const lambda_t = this.shadowPrices.get(nodeId)[t];
-    const lambda_prev = this.shadowPrices.get(nodeId)[t - 1];
-    
-    // Euler: λ_t = β(1 + MP)λ_{t+1}
-    // Simplified: λ_t = β · λ_{t+1} (with constant MP = 0)
-    const lambda_next = t < this.T - 1 ? this.shadowPrices.get(nodeId)[t + 1] : lambda_t;
-    const mp = 0.05; // marginal product of storage
-    
-    return lambda_prev - this.beta * (1 + mp) * lambda_t;
-  }
-
-  // Update shadow prices from constraints
-  updateShadowPrices() {
-    const nodes = Array.from(this.graph.nodes.values());
-    const alpha = 0.1; // learning rate
-    
-    for (let t = 0; t < this.T; t++) {
-      for (const node of nodes) {
-        const violation = this.checkFlowBalance(node.id, t);
-        const current = this.shadowPrices.get(node.id)[t];
-        this.shadowPrices.get(node.id)[t] = Math.max(0.01, current + alpha * violation);
-      }
-    }
-  }
-
-  // One step of gradient descent on primal variables
-  primalStep(learningRate = 0.01) {
+  // Compute per-period welfare (for trajectory)
+  computePeriodWelfare(t) {
+    let periodWelfare = 0;
     const households = this.graph.getHouseholds();
-    const edges = Array.from(this.graph.edges.values());
-    
-    // Update consumption
     for (const h of households) {
-      const arr = this.consumption.get(h.id);
-      for (let t = 0; t < this.T; t++) {
-        const grad = this.gradientConsumption(h.id, t);
-        arr[t] = Math.max(0.01, arr[t] + learningRate * grad);
-      }
+      const c = this.consumption.get(h.id)[t];
+      periodWelfare += h.welfareWeight * utility(c, h.riskAversion);
+    }
+    return periodWelfare;
+  }
+
+  // Compute shadow price for a node (welfare-weighted marginal utility)
+  computeShadowPrice(nodeId, t) {
+    const node = this.graph.nodes.get(nodeId);
+    if (!node) return 0;
+    
+    if (node.type === 'household') {
+      const c = this.consumption.get(nodeId)[t];
+      return node.welfareWeight * marginalUtility(c, node.riskAversion);
     }
     
-    // Update transfers
-    for (const edge of edges) {
-      const key = `${edge.source}-${edge.target}`;
-      const arr = this.transfers.get(key);
-      for (let t = 0; t < this.T; t++) {
-        const grad = this.gradientTransfer(edge.source, edge.target, t);
-        arr[t] = Math.max(0, arr[t] + learningRate * grad);
-      }
-    }
+    // For producers: shadow price is max of downstream household shadow prices
+    // (or average if multiple paths)
+    const outEdges = this.graph.getOutgoingEdges(nodeId);
+    if (outEdges.length === 0) return 0;
     
-    // Update stocks
+    let maxShadow = 0;
+    for (const edge of outEdges) {
+      const targetShadow = this.computeShadowPrice(edge.target, t);
+      maxShadow = Math.max(maxShadow, targetShadow);
+    }
+    return maxShadow;
+  }
+
+  // Compute all shadow prices
+  computeAllShadowPrices() {
     const nodes = Array.from(this.graph.nodes.values());
     for (const node of nodes) {
-      const arr = this.stocks.get(node.id);
-      for (let t = 1; t < this.T; t++) { // t=0 is initial condition
-        const grad = this.gradientStock(node.id, t);
-        arr[t] = Math.max(0, arr[t] + learningRate * grad);
+      if (!this.shadowPrices.has(node.id)) {
+        this.shadowPrices.set(node.id, Array(this.T).fill(0));
+      }
+      for (let t = 0; t < this.T; t++) {
+        this.shadowPrices.get(node.id)[t] = this.computeShadowPrice(node.id, t);
       }
     }
   }
 
-  // Main solve loop with adaptive learning rate
-  solve(maxIter = 2000, tol = 1e-8) {
+  // Gradient of welfare w.r.t. transfer from source to target at time t
+  // ∂W/∂T_{source→target,t} = β^t * (λ_target - λ_source)
+  // where λ = shadow price = welfare-weighted marginal utility
+  gradientTransfer(sourceId, targetId, t) {
+    const lambdaSource = this.computeShadowPrice(sourceId, t);
+    const lambdaTarget = this.computeShadowPrice(targetId, t);
+    return Math.pow(this.beta, t) * (lambdaTarget - lambdaSource);
+  }
+
+  // Project producer outflows onto simplex: total outflow = productivity
+  projectProducerFlows() {
+    const producers = this.graph.getProducers();
+    
+    for (let t = 0; t < this.T; t++) {
+      for (const p of producers) {
+        const outEdges = this.graph.getOutgoingEdges(p.id);
+        if (outEdges.length === 0) continue;
+        
+        // Get current outflows
+        let totalOut = 0;
+        const flows = [];
+        for (const edge of outEdges) {
+          const key = `${edge.source}-${edge.target}`;
+          const val = this.transfers.get(key)[t];
+          flows.push({ key, val });
+          totalOut += val;
+        }
+        
+        if (totalOut === 0) {
+          // If no flow, distribute equally
+          const share = p.productivity / outEdges.length;
+          for (const { key } of flows) {
+            this.transfers.get(key)[t] = share;
+          }
+        } else {
+          // Scale to match productivity
+          const scale = p.productivity / totalOut;
+          for (const { key } of flows) {
+            this.transfers.get(key)[t] *= scale;
+          }
+        }
+      }
+    }
+  }
+
+  // Main solve loop
+  solve(maxIter = 1000, tol = 1e-6) {
     this.initialize();
+    this.welfareTrajectory = [];
+    
     let prevWelfare = -Infinity;
     let bestWelfare = -Infinity;
     let patience = 0;
-    const patienceLimit = 50;
+    const patienceLimit = 100;
     
     for (let iter = 0; iter < maxIter; iter++) {
       this.iterations = iter;
       
-      // Adaptive learning rate: start high, decay, then stabilize
-      let lr = 0.1;
-      if (iter < 100) lr = 0.1;
-      else if (iter < 500) lr = 0.05;
-      else lr = 0.01;
+      // Compute consumption from current transfers
+      this.computeConsumption();
       
-      // Primal update
-      this.primalStep(lr);
+      // Compute welfare
+      const welfare = this.computeWelfare();
+      this.welfare = welfare;
       
-      // Dual update (shadow prices) - less frequent
-      if (iter % 5 === 0) {
-        this.updateShadowPrices();
-      }
+      // Record trajectory
+      this.welfareTrajectory.push(welfare);
       
       // Check convergence
-      const welfare = this.computeWelfare();
       const diff = Math.abs(welfare - prevWelfare);
       
-      // Track best
       if (welfare > bestWelfare) {
         bestWelfare = welfare;
         patience = 0;
@@ -210,22 +214,43 @@ class Simulator {
         patience++;
       }
       
-      // Early stopping if no improvement
-      if (patience > patienceLimit && iter > 200) {
+      if (patience > patienceLimit && iter > 100) {
         this.converged = true;
         this.welfare = bestWelfare;
         break;
       }
       
-      if (diff < tol && iter > 100) {
+      if (diff < tol && iter > 50) {
         this.converged = true;
         this.welfare = welfare;
         break;
       }
       
+      // Adaptive learning rate
+      let lr = 0.5;
+      if (iter < 100) lr = 0.5;
+      else if (iter < 300) lr = 0.2;
+      else lr = 0.05;
+      
+      // Gradient ascent on transfers
+      for (const [key, arr] of this.transfers) {
+        const [source, target] = key.split('-').map(Number);
+        for (let t = 0; t < this.T; t++) {
+          const grad = this.gradientTransfer(source, target, t);
+          arr[t] = Math.max(0, arr[t] + lr * grad);
+        }
+      }
+      
+      // Project onto feasible set (producer flow constraints)
+      this.projectProducerFlows();
+      
       prevWelfare = welfare;
-      this.welfare = welfare;
     }
+    
+    // Final computation
+    this.computeConsumption();
+    this.computeAllShadowPrices();
+    this.welfare = this.computeWelfare();
     
     return {
       welfare: this.welfare,
@@ -239,8 +264,6 @@ class Simulator {
     switch (variable) {
       case 'consumption':
         return this.consumption.get(id) || [];
-      case 'stock':
-        return this.stocks.get(id) || [];
       case 'shadowPrice':
         return this.shadowPrices.get(id) || [];
       case 'transfer':
@@ -261,18 +284,30 @@ class Simulator {
     return agg;
   }
 
-  // Get welfare trajectory (discounted cumulative)
+  // Get welfare trajectory (for plotting)
   getWelfareTrajectory() {
+    // Return per-period utility (shifted to be positive for display)
     const traj = Array(this.T).fill(0);
     const households = this.graph.getHouseholds();
+    
+    // Find minimum utility for shifting
+    let minUtil = 0;
+    for (let t = 0; t < this.T; t++) {
+      for (const h of households) {
+        const c = this.consumption.get(h.id)[t];
+        const u = utility(c, h.riskAversion);
+        minUtil = Math.min(minUtil, u);
+      }
+    }
+    const offset = Math.abs(minUtil) + 1; // Ensure all values positive
     
     for (let t = 0; t < this.T; t++) {
       let periodWelfare = 0;
       for (const h of households) {
         const c = this.consumption.get(h.id)[t];
-        periodWelfare += h.welfareWeight * utility(Math.max(c, 0.001), h.riskAversion);
+        periodWelfare += h.welfareWeight * (utility(c, h.riskAversion) + offset);
       }
-      traj[t] = (t > 0 ? traj[t - 1] : 0) + Math.pow(this.beta, t) * periodWelfare;
+      traj[t] = periodWelfare;
     }
     return traj;
   }
@@ -289,6 +324,20 @@ class Simulator {
       });
     }
     return flows;
+  }
+
+  // Get total production in the network
+  getTotalProduction() {
+    return this.graph.getProducers().reduce((sum, p) => sum + p.productivity, 0);
+  }
+
+  // Get total consumption in the network at time t
+  getTotalConsumption(t) {
+    let total = 0;
+    for (const [id, arr] of this.consumption) {
+      total += arr[t] || 0;
+    }
+    return total;
   }
 }
 
