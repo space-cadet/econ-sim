@@ -5,7 +5,26 @@
 
 ---
 
-## 2026-08-10
+## 2026-08-10 (Afternoon Session — Deployment Fix)
+
+#### 15:16:00 UTC - Deployment Fix: Scenario Dropdown Caching
+- Modified `index.html` — Added cache-busting meta tags (`Cache-Control: no-cache, no-store, must-revalidate`, `Pragma: no-cache`, `Expires: 0`)
+- Modified `index.html` — Bumped JS module import version: `ui.js?v=7` → `ui.js?v=8`
+- Modified `src/ui.js` — Bumped all module import versions: `?v=5` → `?v=6`
+- **Root cause discovered**: Was editing `/home/quantumofgravity/domains/.../` but Apache serves from `/home/quantumofgravity/public_html/`
+- **Fix**: Copied corrected files from domains/ ghost copy to actual DocumentRoot
+- **Verification**: curl now shows all 9 scenarios in dropdown
+
+#### 16:02:00 UTC - Cleanup: Deleted Stale Ghost Copies
+- Deleted `/home/quantumofgravity/domains/quantumofgravity.com/public_html/projects/astro-learn/` — stale partial copy (Jul 27)
+- Deleted `/home/quantumofgravity/domains/quantumofgravity.com/public_html/projects/econ-sim/` — stale full copy (Aug 10)
+- Deleted `/home/quantumofgravity/domains/quantumofgravity.com/public_html/projects/strings-sim/` — stale partial copy (Jul 30)
+- **Reason**: These were not served by Apache (DocumentRoot is public_html/) and caused confusion
+- **Logged**: All operations recorded in `~/workspace/logs/file-operations.log`
+
+---
+
+## 2026-08-10 (Evening Session)
 
 #### 09:12:00 UTC - Edge Manipulation & New Scenarios
 - Modified `src/visualization.js` — Added edge creation visual feedback (ghost line, source highlight)

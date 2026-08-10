@@ -1,6 +1,6 @@
 # Progress Tracker
 
-*Last Updated: 2026-08-10 10:41:00 UTC*
+*Last Updated: 2026-08-10 16:04:00 UTC*
 
 ## Completed (T1-T6)
 
@@ -30,6 +30,13 @@
 - ✅ Auto-connect for new nodes
 - ✅ 4 new network scenarios (Scale-Free, Small-World, Grid, Bipartite)
 
+## Deployment Fix (2026-08-10 Session)
+
+- ✅ **Fixed scenario dropdown not showing new options** — Root cause: edited wrong file path (domains/ instead of public_html/)
+- ✅ **Added cache-busting** — `Cache-Control: no-cache` meta tags + JS version param bump
+- ✅ **Deleted stale ghost copies** — Removed astro-learn, econ-sim, strings-sim from domains/ to prevent future mixups
+- ✅ **Logged all operations** — Recorded in `file-operations.log`
+
 ## Current Status
 
 **All T1-T12 tasks complete.** v1.1 deployed to quantumofgravity.com/projects/econ-sim/
@@ -37,7 +44,7 @@
 ## Next Milestone
 
 v1.2 polish:
-1. Fix scenario dropdown caching for all users
+1. ~~Fix scenario dropdown caching~~ ✅ DONE
 2. Mobile responsiveness
 3. Performance optimization for large networks
 4. Additional UI polish

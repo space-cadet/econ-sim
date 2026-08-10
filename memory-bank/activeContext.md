@@ -1,18 +1,18 @@
 # Active Context
 
-*Last Updated: 2026-08-10 10:41:00 UTC*
+*Last Updated: 2026-08-10 16:04:00 UTC*
 
 ## Current Focus
 
-**All T1-T12 tasks COMPLETED.**
+**Caching/Deployment issue FIXED.**
 
-v1.1 is deployed and functional. Remaining issues are polish items for next session.
+v1.1 is fully deployed and functional. All 9 scenarios visible, auto-connect checkbox present.
 
 ## System Status
 
 - **Project**: econ-sim at `code/econ-sim/`
 - **Deployed**: `quantumofgravity.com/projects/econ-sim/`
-- **Version**: v1.1 (T7-T12 fixes + edge manipulation + new scenarios)
+- **Version**: v1.1 (T7-T12 fixes + edge manipulation + new scenarios + deployment fix)
 - **Status**: LIVE and functional
 
 ## Completed Work Summary
@@ -53,9 +53,16 @@ v1.1 is deployed and functional. Remaining issues are polish items for next sess
 - Auto-connect checkbox
 - 9 total scenarios including Scale-Free, Small-World, Grid, Bipartite
 
+### Deployment Fix (2026-08-10 Session)
+- **Root cause**: Edited wrong file path — Apache DocumentRoot is `/home/quantumofgravity/public_html/`, NOT `/home/quantumofgravity/domains/quantumofgravity.com/public_html/`
+- **Fix**: Copied files from domains/ ghost copy to actual DocumentRoot
+- **Cache-busting**: Added `Cache-Control: no-cache` meta tags + bumped JS version params (?v=5 → ?v=6)
+- **Cleanup**: Deleted stale ghost copies (astro-learn, econ-sim, strings-sim) from domains/ to prevent future footguns
+- **Logged**: All operations recorded in `file-operations.log`
+
 ## Remaining Issues for Next Session
 
-1. **Scenario dropdown caching** — Some users still see old dropdown without new scenarios
+1. ~~Scenario dropdown caching~~ ✅ FIXED
 2. **Mobile responsiveness** — Layout may break on narrow screens
 3. **Performance** — 50+ node networks may be slow
 4. **Flow particle visibility** — May need brighter colors
@@ -67,3 +74,4 @@ v1.1 is deployed and functional. Remaining issues are polish items for next sess
 3. CSS custom properties enable easy theming
 4. Quick Results panel provides immediate feedback without tab switching
 5. Auto-connect reduces friction for network building
+6. **Always verify Apache DocumentRoot before editing server files**

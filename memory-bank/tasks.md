@@ -1,7 +1,7 @@
 # Memory Bank — Econ-Sim
 
 *Created: 2026-08-09 22:00:00 IST*
-*Last Updated: 2026-08-10 10:41:00 UTC*
+*Last Updated: 2026-08-10 16:04:00 UTC*
 
 ## Overview
 
@@ -45,6 +45,13 @@ Post-deployment QA (2026-08-10) revealed critical issues in solver, visualizatio
 - **Auto-connect**: New nodes automatically connect to nearest existing nodes
 - **4 new scenarios**: Scale-Free, Small-World, Grid, Complete Bipartite (9 total)
 
+## Deployment Fix (2026-08-10 Afternoon Session)
+
+- ✅ **Scenario dropdown caching FIXED** — Root cause: was editing `domains/` ghost copy instead of actual `public_html/` DocumentRoot
+- ✅ **Cache-busting added** — `Cache-Control: no-cache` meta tags + JS version param bump (`?v=5` → `?v=6`)
+- ✅ **Ghost copies deleted** — Removed stale `astro-learn`, `econ-sim`, `strings-sim` from `domains/` to prevent future confusion
+- ✅ **Operations logged** — All file operations recorded in `~/workspace/logs/file-operations.log`
+
 ## Status Summary
 
 - **Active**: 0
@@ -55,7 +62,7 @@ Post-deployment QA (2026-08-10) revealed critical issues in solver, visualizatio
 ## Next Session
 
 Remaining issues to address:
-1. Scenario dropdown caching issue (new options not showing for some users)
+1. ~~Scenario dropdown caching issue~~ ✅ FIXED
 2. Mobile responsiveness testing
 3. Performance on large networks (50+ nodes)
 4. Flow animation particle visibility verification
