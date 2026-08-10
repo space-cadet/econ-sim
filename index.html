@@ -442,6 +442,10 @@
               <option value="chain">⛓️ Chain Network</option>
               <option value="twoIslands">🏝️ Two Islands</option>
               <option value="cycle">🔄 Cycle Network</option>
+              <option value="scaleFree">🕸️ Scale-Free</option>
+              <option value="smallWorld">🌐 Small World</option>
+              <option value="grid">⊞ Grid Network</option>
+              <option value="bipartite">⚭ Complete Bipartite</option>
               <option value="random">🎲 Random Network</option>
             </select>
           </div>
@@ -461,6 +465,13 @@
             <input type="number" id="hh-weight" value="1.0" step="0.1" min="0.1" placeholder="Welfare weight">
             <input type="number" id="hh-gamma" value="2.0" step="0.1" min="0.5" placeholder="Risk aversion γ">
             <button id="add-household">➕ Household</button>
+          </div>
+
+          <div class="control-group">
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="checkbox" id="auto-connect" checked style="width: auto;">
+              Auto-connect to nearest
+            </label>
           </div>
           
           <div class="control-group">
@@ -715,7 +726,7 @@
   </div>
 
   <script type="module">
-    import { App } from './src/ui.js?v=6';
+    import { App } from './src/ui.js?v=7';
     
     document.addEventListener('DOMContentLoaded', () => {
       window.app = new App();

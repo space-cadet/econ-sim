@@ -14,7 +14,12 @@ class NetworkVisualization {
     this.onNodeClick = null;
     this.onEdgeClick = null;
     this.selectedNode = null;
+    this.selectedEdge = null;
     this.flowAnimationEnabled = true;
+    
+    // Edge creation state
+    this.edgeSourceNode = null;
+    this.ghostLine = null;
     
     // Color palette
     this.colors = {
@@ -97,7 +102,12 @@ class NetworkVisualization {
     const linkEnter = link.enter().append("line")
       .attr("stroke", this.colors.edge)
       .attr("stroke-width", 2)
-      .attr("marker-end", "url(#arrow)");
+      .attr("marker-end", "url(#arrow)")
+      .attr("cursor", "pointer")
+      .on("click", (e, d) => {
+        e.stopPropagation();
+        this.selectEdge(d);
+      });
 
     const linkUpdate = link.merge(linkEnter);
 
@@ -195,6 +205,68 @@ class NetworkVisualization {
     this.nodeGroup.selectAll("g.node").select("circle.selection-ring")
       .attr("opacity", d => d === this.selectedNode ? 1 : 0);
     if (this.onNodeClick) this.onNodeClick(node);
+  }
+
+  // Edge creation visual feedback
+  setEdgeSource(node) {
+    this.edgeSourceNode = node;
+    // Highlight source node with different color
+    this.nodeGroup.selectAll("g.node").select("circle:first-child")
+      .attr("stroke", d => d === this.edgeSourceNode ? '#fbbf24' : this.colors.stroke)
+      .attr("stroke-width", d => d === this.edgeSourceNode ? 4 : 2);
+    
+    // Create ghost line
+    if (!this.ghostLine) {
+      this.ghostLine = this.svg.append("line")
+        .attr("class", "ghost-edge")
+        .attr("stroke", "#fbbf24")
+        .attr("stroke-width", 2)
+        .attr("stroke-dasharray", "5,5")
+        .attr("opacity", 0.6)
+        .attr("x1", node.x)
+        .attr("y1", node.y)
+        .attr("x2", node.x)
+        .attr("y2", node.y);
+    }
+    
+    // Add mouse move listener
+    this.svg.on("mousemove.edge-create", (e) => {
+      if (!this.ghostLine || !this.edgeSourceNode) return;
+      const [x, y] = d3.pointer(e, this.svg.node());
+      this.ghostLine
+        .attr("x1", this.edgeSourceNode.x)
+        .attr("y1", this.edgeSourceNode.y)
+        .attr("x2", x)
+        .attr("y2", y);
+    });
+  }
+
+  clearEdgeSource() {
+    this.edgeSourceNode = null;
+    if (this.ghostLine) {
+      this.ghostLine.remove();
+      this.ghostLine = null;
+    }
+    this.svg.on("mousemove.edge-create", null);
+    // Reset node strokes
+    this.nodeGroup.selectAll("g.node").select("circle:first-child")
+      .attr("stroke", this.colors.stroke)
+      .attr("stroke-width", 2);
+  }
+
+  selectEdge(edgeData) {
+    this.selectedEdge = edgeData;
+    this.linkGroup.selectAll("line")
+      .attr("stroke", d => d === this.selectedEdge ? '#fbbf24' : this.colors.edge)
+      .attr("stroke-width", d => d === this.selectedEdge ? 4 : 2);
+    if (this.onEdgeClick) this.onEdgeClick(edgeData);
+  }
+
+  clearEdgeSelection() {
+    this.selectedEdge = null;
+    this.linkGroup.selectAll("line")
+      .attr("stroke", this.colors.edge)
+      .attr("stroke-width", 2);
   }
 
   getColor(index) {

@@ -44,6 +44,7 @@ class App {
     this.visualization = new NetworkVisualization('#network-viz', 800, 500, colors);
     this.visualization.init(this.graph);
     this.visualization.onNodeClick = (node) => this.onNodeSelected(node);
+    this.visualization.onEdgeClick = (edge) => this.onEdgeSelected(edge);
     
     // Set up event listeners
     this.setupControls();
@@ -61,6 +62,7 @@ class App {
     this.graph = Scenarios[name]();
     this.visualization.init(this.graph);
     this.visualization.onNodeClick = (node) => this.onNodeSelected(node);
+    this.visualization.onEdgeClick = (edge) => this.onEdgeSelected(edge);
     this.updateStabilityIndicator();
     this.runSimulation();
   }
@@ -127,18 +129,28 @@ class App {
     
     // Add node buttons
     document.getElementById('add-producer').addEventListener('click', () => {
-      this.graph.addNode('producer', { 
+      const node = this.graph.addNode('producer', { 
         productivity: parseFloat(document.getElementById('prod-productivity').value) || 1.0 
       });
+      
+      if (document.getElementById('auto-connect')?.checked) {
+        this.autoConnectNode(node);
+      }
+      
       this.visualization.update();
       this.updateStabilityIndicator();
     });
 
     document.getElementById('add-household').addEventListener('click', () => {
-      this.graph.addNode('household', {
+      const node = this.graph.addNode('household', {
         welfareWeight: parseFloat(document.getElementById('hh-weight').value) || 1.0,
         riskAversion: parseFloat(document.getElementById('hh-gamma').value) || 2.0,
       });
+      
+      if (document.getElementById('auto-connect')?.checked) {
+        this.autoConnectNode(node);
+      }
+      
       this.visualization.update();
       this.updateStabilityIndicator();
     });
@@ -207,19 +219,24 @@ class App {
   onNodeSelected(node) {
     if (this.edgeCreationMode && this.edgeSourceNode === null) {
       this.edgeSourceNode = node;
+      this.visualization.setEdgeSource(node);
       document.getElementById('node-properties').innerHTML = 
-        `<p style="color: #fbbf24; font-weight: 500;">Selected ${node.label} as edge source. Click another node to connect.</p>`;
+        `<p style="color: #fbbf24; font-weight: 500;">✓ Selected ${node.label} as source. Click target node to connect.</p>`;
+      return;
     } else if (this.edgeCreationMode && this.edgeSourceNode !== null) {
       if (this.edgeSourceNode.id !== node.id) {
         this.graph.addEdge(this.edgeSourceNode.id, node.id);
+        this.visualization.clearEdgeSource();
         this.visualization.update();
         this.updateStabilityIndicator();
+        
+        document.getElementById('node-properties').innerHTML = 
+          `<p style="color: #34d399; font-weight: 500;">✓ Created edge: ${this.edgeSourceNode.label} → ${node.label}</p>`;
       }
       this.edgeSourceNode = null;
       this.edgeCreationMode = false;
       document.getElementById('toggle-edge-mode').textContent = '🔗 Edge Mode';
       document.getElementById('toggle-edge-mode').style.background = '#475569';
-      this.onNodeSelected(node); // Show properties of target
       return;
     } else {
       this.visualization.selectNode(node);
@@ -237,6 +254,47 @@ class App {
         <p><strong>Risk Aversion (γ):</strong> ${node.riskAversion.toFixed(2)}</p>
       `}
     `;
+  }
+
+  onEdgeSelected(edge) {
+    const source = this.graph.nodes.get(edge.source.id || edge.source);
+    const target = this.graph.nodes.get(edge.target.id || edge.target);
+    const panel = document.getElementById('node-properties');
+    panel.innerHTML = `
+      <h4 style="color: #fbbf24; margin-bottom: 8px;">Edge: ${source?.label || '?'} → ${target?.label || '?'}</h4>
+      <p><strong>Flow:</strong> ${edge.value?.toFixed(3) || '0.000'}</p>
+      <button id="delete-edge" class="danger" style="margin-top: 8px;">🗑️ Delete Edge</button>
+    `;
+    
+    document.getElementById('delete-edge').addEventListener('click', () => {
+      this.graph.removeEdge(edge.source.id || edge.source, edge.target.id || edge.target);
+      this.visualization.clearEdgeSelection();
+      this.visualization.update();
+      this.updateStabilityIndicator();
+      panel.innerHTML = `<p style="color: #f87171;">Edge deleted</p>`;
+    });
+  }
+
+  autoConnectNode(node) {
+    // Connect to nearest 2 compatible nodes (producers connect to households, households to producers)
+    const allNodes = Array.from(this.graph.nodes.values()).filter(n => n.id !== node.id);
+    if (allNodes.length === 0) return;
+    
+    // Sort by distance
+    const byDistance = allNodes.map(n => ({
+      node: n,
+      dist: Math.hypot((n.x || 0) - (node.x || 0), (n.y || 0) - (node.y || 0)),
+    })).sort((a, b) => a.dist - b.dist);
+    
+    // Connect to nearest 2-3 nodes
+    const nConnect = Math.min(3, byDistance.length);
+    for (let i = 0; i < nConnect; i++) {
+      const target = byDistance[i].node;
+      // Prefer connecting to different type for bipartite structure
+      if (target.type !== node.type || Math.random() < 0.3) {
+        this.graph.addEdge(node.id, target.id);
+      }
+    }
   }
 
   updateStabilityIndicator() {
@@ -305,10 +363,13 @@ class App {
 
   resetSimulation() {
     this.stopAnimation();
+    this.edgeCreationMode = false;
+    this.edgeSourceNode = null;
     this.graph = new EconomicGraph();
     this.createDefaultNetwork();
     this.visualization.init(this.graph);
     this.visualization.onNodeClick = (node) => this.onNodeSelected(node);
+    this.visualization.onEdgeClick = (edge) => this.onEdgeSelected(edge);
     this.updateStabilityIndicator();
     document.getElementById('welfare-value').textContent = '—';
     document.getElementById('convergence-status').textContent = '—';
