@@ -1,6 +1,6 @@
 # Progress Tracker
 
-*Last Updated: 2026-08-10 11:33:00 IST*
+*Last Updated: 2026-08-10 10:41:00 UTC*
 
 ## Completed (T1-T6)
 
@@ -11,20 +11,33 @@
 - ✅ T5: Documentation Section
 - ✅ T6: Deployment to quantumofgravity.com
 
-## Bug-Fix Sprint (T7-T12)
+## Bug-Fix Sprint (T7-T12) — ALL COMPLETED
 
-Discovered during post-deployment QA on 2026-08-10:
+### Critical Issues — FIXED
+- ✅ T7: Fix Numerical Solver Convergence — shadow prices no longer explode, converges in ~70 iters
+- ✅ T8: Fix Spectral Radius Calculation — correct matrix indexing, accurate ρ(A)
 
-### Critical Issues
-- 🔄 T7: Fix Numerical Solver Convergence — shadow prices explode to 1e16
-- 🔄 T8: Fix Spectral Radius Calculation — wrong matrix indexing
+### High Priority — FIXED
+- ✅ T9: Fix D3 Visualization — proper update pattern, visible labels, flow animation
+- ✅ T10: Redesign Color Scheme — teal/cyan on slate, professional look
+- ✅ T11: Fix Plots & Data Display — Canvas heatmap, per-period welfare, inline mini-charts
+- ✅ T12: UX Improvements — Quick Results panel, loading state, auto-tab-switch
 
-### High Priority
-- ⏳ T9: Fix D3 Visualization — invisible labels, broken update pattern
-- ⏳ T10: Redesign Color Scheme — orange-on-dark is jarring
-- ⏳ T11: Fix Plots & Data Display — negative welfare, scatter heatmap
-- ⏳ T12: UX Improvements — inline plots, simulation feedback
+## Enhancements (Beyond Original Scope)
+
+- ✅ Edge manipulation with visual feedback
+- ✅ Edge selection and deletion
+- ✅ Auto-connect for new nodes
+- ✅ 4 new network scenarios (Scale-Free, Small-World, Grid, Bipartite)
+
+## Current Status
+
+**All T1-T12 tasks complete.** v1.1 deployed to quantumofgravity.com/projects/econ-sim/
 
 ## Next Milestone
 
-Get T7-T8 working correctly, then tackle T9-T12 for polished v1.1 release.
+v1.2 polish:
+1. Fix scenario dropdown caching for all users
+2. Mobile responsiveness
+3. Performance optimization for large networks
+4. Additional UI polish
