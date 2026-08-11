@@ -1,39 +1,27 @@
 # Session Cache
-*Created: 2026-08-09 22:00:00 IST*
-*Last Updated: 2026-08-10 16:04:00 UTC*
+
+*Last Updated: 2026-08-10 23:12 UTC*
 
 ## Current Session
-**Started**: 2026-08-10 11:16:00 UTC
-**Ended**: 2026-08-10 16:04:00 UTC
-**Focus Task**: Deployment fix — scenario dropdown caching + ghost copy cleanup
-**Session File**: `sessions/2026-08-10-afternoon.md`
+- **Time**: 2026-08-10 22:58–23:12 UTC
+- **Focus**: Econ-sim refactor to use @space-cadet/graph-core
+- **Status**: PAUSED — CDN loading issues
 
-## Overview
-- Active: 0 | Completed: 12
-- Last Session: `sessions/2026-08-10-afternoon.md`
-- Current Period: afternoon
+## Immediate Context
+- User said "Not working. We'll fix it later."
+- Requested memory bank update and /end session
+- Econ-sim is currently BROKEN in production
 
-## Task Registry (All Completed)
-- T1-T6: Initial implementation (completed 2026-08-09)
-- T7: Fix Numerical Solver Convergence — ✅
-- T8: Fix Spectral Radius Calculation — ✅
-- T9: Fix D3 Visualization & Interaction — ✅
-- T10: Redesign Color Scheme — ✅
-- T11: Fix Plots & Data Display — ✅
-- T12: UX: Inline Plots + Simulation Feedback — ✅
+## Active Files
+- `code/econ-sim/src/graph.js` — CDN import path (currently esm.sh direct)
+- `code/econ-sim/src/ui.js` — `?v=12`
+- `code/econ-sim/src/simulation.js` — `?v=9`
+- `code/econ-sim/src/scenarios.js` — `?v=9`
+- `code/econ-sim/index.html` — `?v=12`
 
-## Session History (Last 5)
-1. `sessions/2026-08-10-afternoon.md` — Deployment fix: scenario dropdown caching, Apache DocumentRoot confusion, ghost copy cleanup
-2. `sessions/2026-08-10-evening.md` — T7-T12 Bug-Fix Sprint + Edge Manipulation + New Scenarios
-3. (Previous sessions from 2026-08-09 — T1-T6 implementation)
+## Blockers
+- CDN import of `@space-cadet/graph-core@0.1.3` fails
+- Need to vendor a self-contained bundle or find alternative loading strategy
 
-## Key Decisions This Session
-1. Apache DocumentRoot is `/home/quantumofgravity/public_html/`, NOT `/home/quantumofgravity/domains/quantumofgravity.com/public_html/`
-2. Always verify target path against Apache config before editing server files
-3. Cache-busting meta tags prevent stale browser cache issues
-4. Deleted ghost copies in domains/ to prevent future footguns
-
-## Remaining Issues
-1. ~~Scenario dropdown caching~~ ✅ FIXED
-2. Mobile responsiveness untested
-3. Performance on 50+ node networks unknown
+## Next Actions (from user)
+- Fix later — no immediate action required

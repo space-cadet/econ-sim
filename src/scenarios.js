@@ -2,7 +2,7 @@
  * Pre-configured network scenarios for demonstration
  */
 
-import { EconomicGraph } from './graph.js?v=5';
+import { EconomicGraph } from './graph.js?v=9';
 
 const Scenarios = {
   // Star network: one central producer, multiple households

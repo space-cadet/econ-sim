@@ -6,7 +6,7 @@
  * This makes the problem feasible by construction and avoids dual variable blowup.
  */
 
-import { EconomicGraph, utility, marginalUtility } from './graph.js?v=5';
+import { EconomicGraph, utility, marginalUtility } from './graph.js?v=9';
 
 class Simulator {
   constructor(graph, params = {}) {

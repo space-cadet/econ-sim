@@ -3,11 +3,11 @@
  * Manages panels, controls, and simulation workflow
  */
 
-import { EconomicGraph } from './graph.js?v=6';
-import { Simulator } from './simulation.js?v=6';
-import { NetworkVisualization } from './visualization.js?v=6';
-import { PlotManager } from './plots.js?v=6';
-import { Scenarios } from './scenarios.js?v=6';
+import { EconomicGraph } from './graph.js?v=9';
+import { Simulator } from './simulation.js?v=7';
+import { NetworkVisualization } from './visualization.js?v=7';
+import { PlotManager } from './plots.js?v=7';
+import { Scenarios } from './scenarios.js?v=7';
 
 class App {
   constructor() {

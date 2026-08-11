@@ -204,7 +204,8 @@ class NetworkVisualization {
     // Update selection ring without full re-render
     this.nodeGroup.selectAll("g.node").select("circle.selection-ring")
       .attr("opacity", d => d === this.selectedNode ? 1 : 0);
-    if (this.onNodeClick) this.onNodeClick(node);
+    // Note: onNodeClick is called by the click handler, not here
+    // to avoid infinite recursion when onNodeClick calls selectNode
   }
 
   // Edge creation visual feedback

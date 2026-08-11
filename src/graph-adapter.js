@@ -3,7 +3,7 @@
  * with the legacy EconomicGraph API for backward compatibility.
  */
 
-import { GraphologyAdapter } from 'https://esm.sh/@space-cadet/graph-core@0.1.3/es2022/graph-core.mjs';
+import { GraphologyAdapter } from 'https://cdn.jsdelivr.net/npm/@space-cadet/graph-core@0.1.2/dist/index.mjs';
 
 class EconomicGraph {
   constructor() {
@@ -110,7 +110,7 @@ class EconomicGraph {
     const sourceStr = this._nodeMap.get(sourceNumId);
     const targetStr = this._nodeMap.get(targetNumId);
     if (sourceStr && targetStr) {
-      this._graph.removeEdge(`e-${sourceStr}-${targetStr}`);
+      this._graph.dropEdge(`e-${sourceStr}-${targetStr}`);
     }
   }
 
