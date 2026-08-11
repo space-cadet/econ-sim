@@ -297,7 +297,7 @@ class NetworkVisualization {
 
   // Update flow visualization with animated particles
   updateFlows(flowData, timeStep) {
-    if (!this.flowAnimationEnabled) return;
+    if (!this.flowAnimationEnabled || !this.simulation) return;
 
     const activeFlows = flowData.filter(d => d.value > 0.01);
     
@@ -306,7 +306,8 @@ class NetworkVisualization {
 
     flows.exit().remove();
 
-    const nodes = this.graph.nodes;
+    // Use D3 simulation nodes — they have the current x/y positions
+    const nodePositions = new Map(this.simulation.nodes().map(n => [n.id, n]));
     
     flows.enter().append("circle")
       .attr("class", "flow-particle")
@@ -314,22 +315,22 @@ class NetworkVisualization {
       .attr("fill", this.colors.flow)
       .attr("opacity", 0.9)
       .attr("cx", d => {
-        const n = nodes.get(d.source);
+        const n = nodePositions.get(d.source);
         return n ? n.x : 0;
       })
       .attr("cy", d => {
-        const n = nodes.get(d.source);
+        const n = nodePositions.get(d.source);
         return n ? n.y : 0;
       })
       .transition()
       .duration(800)
       .ease(d3.easeLinear)
       .attr("cx", d => {
-        const n = nodes.get(d.target);
+        const n = nodePositions.get(d.target);
         return n ? n.x : 0;
       })
       .attr("cy", d => {
-        const n = nodes.get(d.target);
+        const n = nodePositions.get(d.target);
         return n ? n.y : 0;
       })
       .remove();
